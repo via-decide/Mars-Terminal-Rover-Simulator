@@ -589,7 +589,7 @@ canvas#terrain-canvas {
   background: var(--panel);
   border-top: 1px solid var(--border-hi);
   padding: 20px 16px 28px;
-  max-height: 80vh;
+  max-height: 82vh;
   overflow-y: auto;
   transform: translateY(16px);
   transition: transform 0.3s;
@@ -703,6 +703,7 @@ canvas#terrain-canvas {
 }
 .continue-btn:hover { background: rgba(255,255,255,0.03); }
 
+/* OLD FAIL MODAL (kept but not used in research-grade flow) */
 #fail-modal .modal-card { border-top-color: var(--red); }
 .fail-title {
   font-family: var(--display);
@@ -766,6 +767,126 @@ canvas#terrain-canvas {
 .exp-text { font-size: 10px; color: var(--text); line-height: 1.8; }
 
 .hidden { display: none !important; }
+
+/* ============================================================
+   RESEARCH-GRADE POST-MISSION LAYER
+   ============================================================ */
+#research-modal .modal-card { border-top-color: var(--accent); }
+.research-title {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--accent);
+  letter-spacing: 1.5px;
+  margin: 6px 0 6px;
+}
+.research-sub {
+  font-size: 9px;
+  color: var(--text-dim);
+  line-height: 1.8;
+  margin-bottom: 12px;
+}
+.research-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.r-card {
+  border: 1px solid var(--border);
+  background: rgba(0,200,255,0.02);
+  padding: 10px 10px;
+}
+.r-k {
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.r-v {
+  font-family: var(--display);
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: var(--text-hi);
+}
+.r-v.good { color: var(--green); }
+.r-v.warn { color: var(--amber); }
+.r-v.bad  { color: var(--red); }
+.r-mini {
+  margin-top: 6px;
+  font-size: 9px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.packet-box {
+  margin-top: 12px;
+  border: 1px solid var(--border-hi);
+  background: rgba(0,0,0,0.2);
+  padding: 10px 10px;
+}
+.packet-label {
+  font-size: 7px;
+  letter-spacing: 2.5px;
+  color: var(--accent);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.packet-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 9px;
+  line-height: 1.6;
+  color: var(--text);
+  opacity: 0.92;
+}
+.research-cta-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.research-btn {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--border-hi);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  text-transform: uppercase;
+}
+.research-btn.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.research-btn.primary:hover { background: rgba(0,200,255,0.06); }
+.research-btn:hover { background: rgba(255,255,255,0.03); }
+.research-btn.danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+.research-btn.danger:hover { background: rgba(255,58,58,0.08); }
+
+/* Tiny toast */
+.toast-mini {
+  position: fixed;
+  left: 12px;
+  top: 60px;
+  z-index: 1200;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--accent);
+  border: 1px solid var(--border-hi);
+  background: rgba(0,0,0,0.7);
+  padding: 6px 10px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+}
+.toast-mini.show { opacity: 1; transform: translateY(0); }
 </style>
 </head>
 
@@ -774,6 +895,7 @@ canvas#terrain-canvas {
 <div id="overlay-vignette"></div>
 <div id="overlay-grain"></div>
 <div class="solar-glow" id="solar-glow"></div>
+<div class="toast-mini" id="toast-mini">COPIED</div>
 
 <!-- BOOT -->
 <div class="screen active" id="boot-screen">
@@ -943,7 +1065,55 @@ canvas#terrain-canvas {
   </div>
 </div>
 
-<!-- FAIL MODAL -->
+<!-- RESEARCH-GRADE POST-MISSION MODAL (shown when energy hits 0%) -->
+<div class="modal-bg" id="research-modal">
+  <div class="modal-card">
+    <div class="modal-tag">◈ RESEARCH MODE · AUTONOMY TRAINING OUTPUT</div>
+    <div class="research-title">ENERGY DEPLETED · DATASET READY</div>
+    <div class="research-sub">
+      HEX-01 entered safe-offline. Your run is now a structured training packet.
+      <span style="color:var(--accent)">SEND TO DEV</span> will copy the packet and open an email draft for feasibility review (dev may forward to ISRO if feasible).
+    </div>
+
+    <div class="modal-divider"></div>
+
+    <div class="research-grid">
+      <div class="r-card">
+        <div class="r-k">Validation Score</div>
+        <div class="r-v good" id="rg-val">0</div>
+        <div class="r-mini" id="rg-val-mini">Correct interpretations logged.</div>
+      </div>
+      <div class="r-card">
+        <div class="r-k">Decision Accuracy</div>
+        <div class="r-v" id="rg-acc">—</div>
+        <div class="r-mini" id="rg-acc-mini">Correct / total analyses.</div>
+      </div>
+      <div class="r-card">
+        <div class="r-k">Mobility Risk Events</div>
+        <div class="r-v warn" id="rg-risk">0</div>
+        <div class="r-mini" id="rg-risk-mini">Slip + storm count.</div>
+      </div>
+      <div class="r-card">
+        <div class="r-k">Latency Penalty</div>
+        <div class="r-v" id="rg-lat">—</div>
+        <div class="r-mini" id="rg-lat-mini">Operator penalties accumulated.</div>
+      </div>
+    </div>
+
+    <div class="packet-box">
+      <div class="packet-label">◈ TRAINING PACKET (PREVIEW)</div>
+      <div class="packet-pre" id="packet-preview">—</div>
+    </div>
+
+    <div class="research-cta-row">
+      <button class="research-btn primary" onclick="saveResearchProgress()">SAVE PROGRESS</button>
+      <button class="research-btn primary" onclick="sendToDev()">SEND TO DEV</button>
+      <button class="research-btn danger" onclick="endSim()">END SIMULATION</button>
+    </div>
+  </div>
+</div>
+
+<!-- FAIL MODAL (kept, but research modal is the main UX for 0% battery) -->
 <div class="modal-bg" id="fail-modal">
   <div class="modal-card">
     <div class="modal-tag">✕ CRITICAL SYSTEM ALERT</div>
@@ -954,6 +1124,12 @@ canvas#terrain-canvas {
 </div>
 
 <script>
+/* ============================================================
+   DEV CTA CONFIG (NEW)
+   ============================================================ */
+/* ✅ Replace with your real dev email */
+const DEV_REVIEW_EMAIL = "dharam@viadecide.com";
+
 /* ============================================================
    ENGINE
    ============================================================ */
@@ -981,6 +1157,9 @@ const TERRAIN_DATABASE = [
   { id: "T_SOFT_DUST_DRIFT", name: "Soft Dust Drift", complexityIndex: 8.5, hazards: { slipProbability: 0.85, costMult: 2.5 } }
 ];
 
+/* ============================================================
+   RESEARCH-GRADE STATE EXTENSIONS
+   ============================================================ */
 const S = {
   energy: 84,
   validation: 0,
@@ -990,7 +1169,27 @@ const S = {
   playableLatencyMs: 1200,
   simLatencySeconds: MISSION_CONFIG.communications.latency.averageMs / 1000,
   nodeNearby: false,
-  _lastDir: null
+  _lastDir: null,
+
+  // Research metrics
+  runId: null,
+  startTs: null,
+  endedTs: null,
+  isOffline: false,
+  metrics: {
+    moves: 0,
+    scans: 0,
+    challenges: 0,
+    correct: 0,
+    wrong: 0,
+    slips: 0,
+    storms: 0,
+    latencyPenaltySeconds: 0,
+    energySpentMoves: 0,
+    energySpentScans: 0,
+    energyPenaltyWrong: 0,
+  },
+  log: []
 };
 
 let loops = { ambient: null, solar: null, nodes: null };
@@ -1219,12 +1418,195 @@ document.addEventListener('keydown', ev => {
 });
 
 /* ============================================================
+   RESEARCH HELPERS
+   ============================================================ */
+const STORAGE_KEY = 'HEX01_RESEARCH_RUN_V1';
+
+function nowISO() { return new Date().toISOString(); }
+function mkRunId() {
+  const t = Date.now().toString(36);
+  const r = Math.random().toString(36).slice(2, 8);
+  return `HEX01-${t}-${r}`.toUpperCase();
+}
+
+function logEvent(type, data = {}) {
+  S.log.push({ t: nowISO(), type, ...data });
+  if (S.log.length > 120) S.log.splice(0, S.log.length - 120);
+}
+
+function buildResearchPacket() {
+  const total = S.metrics.correct + S.metrics.wrong;
+  const acc = total > 0 ? (S.metrics.correct / total) : null;
+
+  return {
+    schema: "HEX01_RESEARCH_PACKET_V1",
+    runId: S.runId,
+    startedAt: S.startTs,
+    endedAt: S.endedTs,
+    mission: {
+      quadrant: "A3",
+      solLabel: document.getElementById('sol-text')?.textContent || "SOL ?",
+    },
+    finalState: {
+      energy: Math.max(0, Math.floor(S.energy)),
+      validation: S.validation,
+      latencySeconds: Math.floor(S.simLatencySeconds),
+      playableLatencyMs: Math.floor(S.playableLatencyMs),
+      lastDir: S._lastDir,
+      terrain: S.currentTerrain?.id || null,
+      stormActive: !!S.stormActive
+    },
+    metrics: {
+      ...S.metrics,
+      decisionAccuracy: acc === null ? null : Math.round(acc * 1000) / 10
+    },
+    derived: {
+      tilesUnlocked: Math.floor(S.validation / 10),
+      riskIndex: S.metrics.slips + S.metrics.storms,
+      energyEfficiency: {
+        moves: S.metrics.moves > 0 ? Math.round((S.metrics.energySpentMoves / S.metrics.moves) * 100) / 100 : null,
+        scans: S.metrics.scans > 0 ? Math.round((S.metrics.energySpentScans / S.metrics.scans) * 100) / 100 : null,
+      }
+    },
+    eventLog: S.log
+  };
+}
+
+function toastMini(msg) {
+  const t = document.getElementById('toast-mini');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1100);
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toastMini('COPIED');
+    return true;
+  } catch (e) {
+    // fallback (not always allowed in modern browsers)
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      if (ok) toastMini('COPIED');
+      return ok;
+    } catch (e2) {
+      return false;
+    }
+  }
+}
+
+function openResearchModal() {
+  const modal = document.getElementById('research-modal');
+  if (!modal) return;
+
+  const packet = buildResearchPacket();
+  const total = S.metrics.correct + S.metrics.wrong;
+  const accPct = total ? Math.round((S.metrics.correct / total) * 100) : null;
+
+  document.getElementById('rg-val').textContent = `${S.validation} pts`;
+  document.getElementById('rg-val-mini').textContent = `${Math.floor(S.validation/10)} validated tiles unlocked`;
+
+  document.getElementById('rg-acc').textContent = (accPct === null) ? '—' : `${accPct}%`;
+  document.getElementById('rg-acc').className = 'r-v ' + (accPct === null ? '' : (accPct >= 70 ? 'good' : accPct >= 45 ? 'warn' : 'bad'));
+  document.getElementById('rg-acc-mini').textContent = `${S.metrics.correct} correct / ${total} total analyses`;
+
+  const risk = S.metrics.slips + S.metrics.storms;
+  document.getElementById('rg-risk').textContent = `${risk}`;
+  document.getElementById('rg-risk').className = 'r-v ' + (risk <= 2 ? 'good' : risk <= 5 ? 'warn' : 'bad');
+  document.getElementById('rg-risk-mini').textContent = `${S.metrics.slips} slips · ${S.metrics.storms} storms`;
+
+  document.getElementById('rg-lat').textContent = `+${S.metrics.latencyPenaltySeconds}s`;
+  document.getElementById('rg-lat').className = 'r-v ' + (S.metrics.latencyPenaltySeconds <= 120 ? 'good' : S.metrics.latencyPenaltySeconds <= 360 ? 'warn' : 'bad');
+  document.getElementById('rg-lat-mini').textContent = `playable latency now ${Math.floor(S.playableLatencyMs)}ms`;
+
+  const preview = JSON.stringify(packet, null, 2);
+  document.getElementById('packet-preview').textContent =
+    preview.length > 1400 ? (preview.slice(0, 1400) + "\n…(preview truncated)") : preview;
+
+  modal.classList.add('open');
+}
+
+function saveResearchProgress() {
+  const packet = buildResearchPacket();
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(packet));
+    logToast('RESEARCH PACKET SAVED LOCALLY');
+    logEvent('SAVE_PROGRESS', { key: STORAGE_KEY });
+    toastMini('SAVED');
+  } catch (e) {
+    logToast('ERROR: SAVE FAILED (STORAGE BLOCKED)');
+  }
+}
+
+/* ============================================================
+   SEND TO DEV (NEW — replaces “export json wall” as your CTA)
+   - Copies packet
+   - Opens email draft (mailto)
+   ============================================================ */
+async function sendToDev() {
+  const packet = buildResearchPacket();
+  const json = JSON.stringify(packet, null, 2);
+
+  const copied = await copyToClipboard(json);
+  if (!copied) {
+    logToast('COPY BLOCKED · MANUALLY COPY FROM PREVIEW');
+  } else {
+    logToast('PACKET COPIED · OPENING EMAIL DRAFT');
+  }
+
+  const total = S.metrics.correct + S.metrics.wrong;
+  const accPct = total ? Math.round((S.metrics.correct / total) * 100) : 0;
+
+  const subject = encodeURIComponent(`HEX-01 Feasibility Review Packet — ${packet.runId}`);
+  const body = encodeURIComponent(
+`Hello Dev Team,
+
+Please review this HEX-01 training packet for mission feasibility and simulator improvements.
+If feasible, forward a summary to ISRO.
+
+Run ID: ${packet.runId}
+Validation: ${packet.finalState.validation} pts
+Tiles Unlocked: ${packet.derived.tilesUnlocked}
+Decision Accuracy: ${accPct}%
+Risk Index: ${packet.derived.riskIndex}
+Latency Penalty: +${packet.metrics.latencyPenaltySeconds}s
+
+INSTRUCTIONS:
+1) Paste the copied JSON packet below (clipboard).
+2) Provide feasibility notes and recommended upgrades.
+
+--- PASTE PACKET JSON BELOW ---
+${copied ? "[PASTE COPIED PACKET HERE]" : json}
+`
+  );
+
+  // Opens device email client with prefilled draft
+  window.location.href = `mailto:${encodeURIComponent(DEV_REVIEW_EMAIL)}?subject=${subject}&body=${body}`;
+  logEvent('SEND_TO_DEV', { email: DEV_REVIEW_EMAIL, copied });
+}
+
+/* ============================================================
    CORE
    ============================================================ */
-
 function initiateControl() {
   document.getElementById('boot-screen').classList.remove('active');
   document.getElementById('sim-screen').classList.add('active');
+
+  S.runId = mkRunId();
+  S.startTs = nowISO();
+  S.endedTs = null;
+  S.isOffline = false;
+  S.log = [];
+  logEvent('RUN_START', { runId: S.runId });
 
   const ok3d = Renderer3D.init();
   if (ok3d) {
@@ -1245,7 +1627,11 @@ function initiateControl() {
 }
 
 function endSim() {
+  document.getElementById('research-modal').classList.remove('open');
+  document.getElementById('result-modal').classList.remove('open');
+  document.getElementById('challenge-modal').classList.remove('open');
   document.getElementById('fail-modal').classList.remove('open');
+
   document.getElementById('sim-screen').classList.remove('active');
   document.getElementById('boot-screen').classList.add('active');
 
@@ -1265,6 +1651,18 @@ function endSim() {
   S.nodeNearby = false;
   S._lastDir = null;
   S.currentTerrain = TERRAIN_DATABASE[0];
+
+  S.runId = null;
+  S.startTs = null;
+  S.endedTs = null;
+  S.isOffline = false;
+  S.metrics = {
+    moves: 0, scans: 0, challenges: 0, correct: 0, wrong: 0,
+    slips: 0, storms: 0, latencyPenaltySeconds: 0,
+    energySpentMoves: 0, energySpentScans: 0, energyPenaltyWrong: 0
+  };
+  S.log = [];
+
   challengeIdx = 0;
   selectedChoiceIdx = null;
   tx = 0; ty = 0;
@@ -1293,7 +1691,7 @@ function updateUI() {
 
   const stateEl = document.getElementById('sr-state');
   stateEl.textContent = S.roverState;
-  stateEl.className = 'sys-val ' + (S.roverState === 'IDLE' ? 'ok' : S.roverState === 'SCANNING' ? 'warn' : '');
+  stateEl.className = 'sys-val ' + (S.roverState === 'IDLE' ? 'ok' : S.roverState === 'SCANNING' ? 'warn' : (S.roverState === 'OFFLINE' ? 'bad' : ''));
 
   document.getElementById('sr-temp').textContent  = S.stormActive ? '-85.4°C' : '-54.2°C';
   const solarEl = document.getElementById('sr-solar');
@@ -1304,7 +1702,6 @@ function updateUI() {
   rsb.textContent = S.roverState;
   rsb.className = 'rover-state-badge ' + (S.roverState.includes('MOVING') ? 'moving' : S.roverState === 'SCANNING' ? 'scanning' : '');
 
-  // ✅ FIX: scan readiness should not depend on nodeNearby
   const scanBtn = document.getElementById('scan-btn');
   const canScan = (S.roverState === 'IDLE' && S.energy >= MISSION_CONFIG.instruments.apxs_spectrometer.energyCostPct);
   scanBtn.className = 'scan-btn' + (canScan ? ' ready' : '');
@@ -1316,14 +1713,28 @@ function updateUI() {
     scnBtn.style.boxShadow = canScan ? '0 0 8px rgba(0,200,255,0.3)' : '';
   }
 
-  // keep node pill as flavor only
   document.getElementById('node-pill').classList.toggle('visible', S.nodeNearby);
-
   document.getElementById('storm-badge').classList.toggle('visible', S.stormActive);
   document.getElementById('storm-veil').classList.toggle('active', S.stormActive);
   document.getElementById('hb-veil').classList.toggle('pulse', S.energy < 15);
 
-  if (S.energy <= 0) document.getElementById('fail-modal').classList.add('open');
+  if (S.energy <= 0 && !S.isOffline) {
+    S.energy = 0;
+    S.isOffline = true;
+    S.roverState = 'OFFLINE';
+    S.endedTs = nowISO();
+    logEvent('RUN_END', { reason: 'ENERGY_DEPLETED' });
+
+    clearInterval(loops.ambient);
+    clearInterval(loops.solar);
+    clearInterval(loops.nodes);
+
+    document.getElementById('result-modal').classList.remove('open');
+    document.getElementById('challenge-modal').classList.remove('open');
+
+    logToast('OFFLINE · ENTERING RESEARCH MODE');
+    openResearchModal();
+  }
 
   HEX01_Bus.dispatch('stateChange', HEX01_Snapshot());
 }
@@ -1332,9 +1743,9 @@ function logToast(msg) {
   document.getElementById('toast-log').textContent = 'SYS: ' + msg;
 }
 
-/* ── LOOPS ──────────────────────────────────────────────── */
 function startLoops() {
   loops.solar = setInterval(() => {
+    if (S.isOffline) return;
     if (S.roverState === 'IDLE' && S.energy < 100) {
       const chargeBase = 0.5;
       const charge = S.stormActive ? chargeBase * MISSION_CONFIG.powerSystems.solar.dustStormMultiplier : chargeBase;
@@ -1348,25 +1759,27 @@ function startLoops() {
     }
   }, 2000);
 
-  // nodes still spawn (optional)
   loops.nodes = setInterval(() => {
+    if (S.isOffline) return;
     if (S.roverState === 'MOVING' && Math.random() < 0.2 && !S.nodeNearby) {
       S.nodeNearby = true;
       logToast('GEO-NODE PROXIMITY ALERT — SCAN AVAILABLE');
+      logEvent('NODE_NEARBY', {});
       updateUI();
-      // auto-clear after a while so it doesn’t stick forever
-      setTimeout(() => { S.nodeNearby = false; updateUI(); }, 9000);
+      setTimeout(() => { if (!S.isOffline) { S.nodeNearby = false; updateUI(); } }, 9000);
     }
   }, 4000);
 }
 
 /* ── MOVE ──────────────────────────────────────────────── */
 function move(dir) {
+  if (S.isOffline) return;
   if (S.roverState !== 'IDLE' || S.energy <= 0) return;
 
   S._lastDir = dir;
   S.roverState = 'MOVING_QUEUED';
   logToast(`CMD [MOVE ${dir}] TRANSMITTING…`);
+  logEvent('MOVE_QUEUED', { dir });
 
   const btn = document.getElementById('d-' + dir);
   if (btn) btn.classList.add('lit');
@@ -1375,6 +1788,7 @@ function move(dir) {
   updateUI();
 
   setTimeout(() => {
+    if (S.isOffline) return;
     if (btn) btn.classList.remove('lit');
     document.getElementById('lat-banner').classList.remove('visible');
     executeMove(dir);
@@ -1382,11 +1796,15 @@ function move(dir) {
 }
 
 function executeMove(dir) {
+  if (S.isOffline) return;
+
   S.roverState = 'MOVING';
   S.currentTerrain = TERRAIN_DATABASE[Math.floor(Math.random() * TERRAIN_DATABASE.length)];
+  S.metrics.moves += 1;
 
   const drain = MISSION_CONFIG.locomotion.baseEnergyDrainPerMove * S.currentTerrain.hazards.costMult;
   S.energy -= drain;
+  S.metrics.energySpentMoves += drain;
 
   const v = DIR_VECTORS[dir] || [0,0];
   tx += v[0] * 18;
@@ -1395,11 +1813,17 @@ function executeMove(dir) {
   if (Math.random() < S.currentTerrain.hazards.slipProbability) {
     logToast('HAZARD: WHEEL SLIP — EXTRA POWER DRAWN');
     S.energy -= 2.5;
+    S.metrics.slips += 1;
+    S.metrics.energySpentMoves += 2.5;
+    logEvent('SLIP', { terrain: S.currentTerrain.id, extraDrain: 2.5 });
   } else {
     logToast(`MOVED ${dir} · TERRAIN: ${S.currentTerrain.name.toUpperCase()}`);
   }
 
+  logEvent('MOVE_EXEC', { dir, terrain: S.currentTerrain.id, drain });
+
   setTimeout(() => {
+    if (S.isOffline) return;
     S.roverState = 'IDLE';
     updateUI();
   }, 1000);
@@ -1407,14 +1831,14 @@ function executeMove(dir) {
   updateUI();
 }
 
-/* ── SCAN (✅ FIXED) ────────────────────────────────────── */
+/* ── SCAN (fixed) ────────────────────────────────────── */
 function startScan() {
-  // ✅ FIX: only block if not idle
+  if (S.isOffline) return;
+
   if (S.roverState !== 'IDLE') {
     logToast('BUSY: WAIT FOR ROVER IDLE');
     return;
   }
-  // ✅ FIX: give feedback if energy low
   if (S.energy < MISSION_CONFIG.instruments.apxs_spectrometer.energyCostPct) {
     logToast('ERROR: INSUFFICIENT ENERGY FOR APXS SCAN');
     updateUI();
@@ -1422,26 +1846,39 @@ function startScan() {
   }
 
   S.roverState = 'SCANNING';
+  S.metrics.scans += 1;
   logToast('APXS SCAN INITIATED — PROCESSING…');
+  logEvent('SCAN_START', {});
   document.getElementById('cam-data').textContent = 'SCANNING…\nANALYSING…\nPROCESSING…';
   document.getElementById('scan-sweep').classList.add('active');
   updateUI();
 
   setTimeout(() => {
-    S.energy -= MISSION_CONFIG.instruments.apxs_spectrometer.energyCostPct;
+    if (S.isOffline) return;
+
+    const cost = MISSION_CONFIG.instruments.apxs_spectrometer.energyCostPct;
+    S.energy -= cost;
+    S.metrics.energySpentScans += cost;
+
     document.getElementById('scan-sweep').classList.remove('active');
     document.getElementById('cam-data').innerHTML = 'FOCAL 50mm<br>ISO 800<br>EXP 1/250';
     S.roverState = 'IDLE';
-    S.nodeNearby = false; // clear flavor
+    S.nodeNearby = false;
+
+    logEvent('SCAN_END', { energyCostPct: cost });
     updateUI();
-    showChallenge(); // ✅ now always opens
+    showChallenge();
   }, S.playableLatencyMs);
 }
 
 /* ── CHALLENGE MODAL ────────────────────────────────────── */
 function showChallenge() {
+  if (S.isOffline) return;
+
   const ch = CHALLENGES[challengeIdx % CHALLENGES.length];
   selectedChoiceIdx = null;
+  S.metrics.challenges += 1;
+  logEvent('CHALLENGE_OPEN', { id: ch.id });
 
   document.getElementById('c-qid').textContent = '◈ ' + ch.id + ' · ' + ch.instrument;
   const diffEl = document.getElementById('c-diff');
@@ -1475,14 +1912,14 @@ function showChallenge() {
 
 function selectChoice(idx) {
   selectedChoiceIdx = idx;
-  document.querySelectorAll('.c-btn').forEach((b, i) => {
-    b.classList.toggle('selected', i === idx);
-  });
+  document.querySelectorAll('.c-btn').forEach((b, i) => b.classList.toggle('selected', i === idx));
   document.getElementById('submit-btn').style.display = 'block';
 }
 
 function submitAnswer() {
+  if (S.isOffline) return;
   if (selectedChoiceIdx === null) return;
+
   const ch = CHALLENGES[challengeIdx % CHALLENGES.length];
   const correct = ch.choices[selectedChoiceIdx].correct;
 
@@ -1497,6 +1934,8 @@ function submitAnswer() {
     document.getElementById('explanation-box').style.display = 'block';
   }
 
+  logEvent('CHALLENGE_SUBMIT', { id: ch.id, selectedIdx: selectedChoiceIdx, correct });
+
   const sb = document.getElementById('submit-btn');
   sb.textContent = correct ? 'CONFIRMED · CONTINUE MISSION' : 'ACKNOWLEDGED · CONTINUE';
   sb.style.display = 'block';
@@ -1507,11 +1946,15 @@ function submitAnswer() {
   };
 }
 
+/* ── RESULT ─────────────────────────────────────────────── */
 function applyResult(correct) {
+  if (S.isOffline) return;
+
   let energyDelta, valDelta, latDelta;
 
   if (correct) {
     S.validation += 10;
+    S.metrics.correct += 1;
     energyDelta = +8;
     valDelta    = '+10 pts';
     latDelta    = '—';
@@ -1519,7 +1962,10 @@ function applyResult(correct) {
     challengeIdx++;
   } else {
     S.energy -= 5;
+    S.metrics.wrong += 1;
+    S.metrics.energyPenaltyWrong += 5;
     S.simLatencySeconds += 120;
+    S.metrics.latencyPenaltySeconds += 120;
     S.playableLatencyMs += 300;
     energyDelta = -5;
     valDelta    = '0 pts';
@@ -1527,7 +1973,7 @@ function applyResult(correct) {
     logToast('ERROR: DATA INCONCLUSIVE · PENALTY APPLIED');
   }
 
-  S.energy = Math.min(100, S.energy + (correct ? 8 : 0));
+  if (correct) S.energy = Math.min(100, S.energy + 8);
 
   const _ch = CHALLENGES[(correct ? challengeIdx - 1 : challengeIdx) % CHALLENGES.length];
   document.getElementById('r-tag').textContent   = correct ? '◈ LOGGED · ' + _ch.id : '✕ REJECTED · ' + _ch.id;
@@ -1556,7 +2002,9 @@ function closeResult() {
   document.getElementById('result-modal').classList.remove('open');
 }
 
-/* ── BOOT SEQUENCE ──────────────────────────────────────── */
+/* ============================================================
+   BOOT SEQUENCE
+   ============================================================ */
 const BOOT_LINES = [
   { text: 'DSN Relay Node 7 …',        key: null,           val: 'CONNECTING',  cls: '' },
   { text: 'Signal established.',        key: null,           val: 'OK',          cls: 'bl-ok' },
