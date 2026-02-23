@@ -5,10 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>HEX-01 · Mars Geological Survey</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<!-- ═══ PWA META ═══════════════════════════════════════════════════════════ -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#03050a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HEX-01">
 <link rel="apple-touch-icon" href="icon-192.png">
+<meta name="application-name" content="HEX-01">
+<meta name="description" content="ISRO Mars Rover Simulator — Geological Survey Mission">
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 
 <!-- THREE r128 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -64,6 +73,18 @@ html,body{ width:100%; height:100%; overflow:hidden; background:var(--bg); color
 .boot-cta:hover::after{ opacity:0.08; } .boot-cta:active{ background:var(--accent); color:var(--bg); }
 .boot-cta-dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); animation:dotPulse 1.2s ease-in-out infinite; }
 @keyframes dotPulse{ 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.7)} }
+
+/* PWA install banner */
+#pwa-install-bar {
+  display:none; position:fixed; bottom:0; left:0; right:0; z-index:1000;
+  background:#080e17; border-top:1px solid var(--accent-dk);
+  padding:10px 16px; align-items:center; justify-content:space-between; gap:10px;
+}
+#pwa-install-bar.show { display:flex; }
+#pwa-install-bar span { font-size:10px; letter-spacing:1.5px; color:var(--text); }
+.pwa-install-btn { background:none; border:1px solid var(--accent); color:var(--accent);
+  font-family:var(--mono); font-size:9px; letter-spacing:2px; padding:7px 14px; cursor:pointer; }
+.pwa-dismiss-btn { background:none; border:none; color:var(--text-dim); font-family:var(--mono); font-size:9px; cursor:pointer; }
 
 #sim-screen{ background:var(--bg); }
 
@@ -302,6 +323,15 @@ textarea.inp{ min-height:78px; resize:none; grid-column:1 / -1; }
 <div id="overlay-grain"></div>
 <div class="solar-glow" id="solar-glow"></div>
 
+<!-- PWA Install Banner -->
+<div id="pwa-install-bar">
+  <span>◈ INSTALL HEX-01 AS APP · OFFLINE CAPABLE</span>
+  <div style="display:flex;gap:8px;">
+    <button class="pwa-install-btn" id="pwa-install-btn">INSTALL</button>
+    <button class="pwa-dismiss-btn" id="pwa-dismiss-btn">✕</button>
+  </div>
+</div>
+
 <!-- BOOT -->
 <div class="screen active" id="boot-screen">
   <div class="boot-header">ISRO · DSN RELAY · HEX-01</div>
@@ -393,8 +423,6 @@ textarea.inp{ min-height:78px; resize:none; grid-column:1 / -1; }
         <div class="sys-row"><span class="sys-key">TEMP</span><span class="sys-val" id="sr-temp">-54.2°C</span></div>
         <div class="sys-row"><span class="sys-key">SOLAR</span><span class="sys-val ok" id="sr-solar">OPTIMAL</span></div>
       </div>
-
-      <!-- Scan is enabled only when GEO-NODE is nearby (scan logic enabled) -->
       <button class="scan-btn" id="scan-btn" onclick="startScan()">◈ INITIATE APXS SCAN</button>
     </div>
 
@@ -525,14 +553,6 @@ textarea.inp{ min-height:78px; resize:none; grid-column:1 / -1; }
 /* =============================
    IMPORTANT: SCAN LOGIC ENABLED
    ============================= */
-/**
- * Scan is enabled only when:
- *  - Rover is IDLE
- *  - Energy >= scan cost
- *  - GEO-NODE is nearby (nodeNearby === true)
- *
- * This matches a “real mission” flow: you scan only on targets.
- */
 const REQUIRE_NODE_FOR_SCAN = true;
 
 /* ============================================================
@@ -540,7 +560,7 @@ const REQUIRE_NODE_FOR_SCAN = true;
    ============================================================ */
 const GLB_MODEL_URL = "24881_Mars_1_6792.glb";
 
-const DEV_WEBHOOK_URL = "";              // e.g. "https://yourdomain.com/api/hex01-submit"
+const DEV_WEBHOOK_URL = "";
 const DEV_FALLBACK_EMAIL = "dharam@viadecide.com";
 
 /* ============================================================
@@ -666,12 +686,8 @@ const Renderer3D = (() => {
   let root = null;
   let loaded = false;
   let vpEl = null;
-
-  let terrainX = 0;
-  let terrainZ = 0;
-
-  let fog = null;
-  let sun = null;
+  let terrainX = 0, terrainZ = 0;
+  let fog = null, sun = null;
 
   function setStatusLED(ok) {
     const led = document.getElementById('status-led');
@@ -683,8 +699,7 @@ const Renderer3D = (() => {
 
   function resize() {
     if (!renderer || !camera || !vpEl) return;
-    const w = vpEl.clientWidth;
-    const h = vpEl.clientHeight;
+    const w = vpEl.clientWidth, h = vpEl.clientHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
@@ -711,40 +726,32 @@ const Renderer3D = (() => {
   async function start() {
     vpEl = document.getElementById('viewport');
     const canvasEl = document.getElementById('threejs-canvas');
-
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x05080c);
     fog = new THREE.Fog(0x05080c, 6, 28);
     scene.fog = fog;
-
     const w = vpEl.clientWidth, h = vpEl.clientHeight;
     camera = new THREE.PerspectiveCamera(50, w/h, 0.1, 200);
     camera.position.set(0, 4.0, 10.5);
     camera.lookAt(0, 0.6, 0);
-
     renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(w, h, false);
     renderer.outputEncoding = THREE.sRGBEncoding;
-
     sun = new THREE.DirectionalLight(0xffb37a, 1.4);
     sun.position.set(6, 10, 6);
     scene.add(sun);
     scene.add(new THREE.AmbientLight(0x4b2a18, 0.55));
-
     root = new THREE.Group();
     scene.add(root);
-
     setStatusLED(false);
     try {
       const gltf = await loadGLB(GLB_MODEL_URL);
       loaded = true;
       setStatusLED(true);
-
       root.add(gltf.scene);
       gltf.scene.scale.setScalar(1.0);
       gltf.scene.position.set(0, 0, 0);
-
       gltf.scene.traverse((obj) => {
         if (obj.isMesh) {
           obj.receiveShadow = true;
@@ -754,11 +761,8 @@ const Renderer3D = (() => {
     } catch (e) {
       loaded = false;
       setStatusLED(false);
-      // still render fallback ground in 3D mode
     }
-
     buildFallbackGround();
-
     clock = new THREE.Clock();
     window.addEventListener('resize', resize);
     animate();
@@ -770,7 +774,6 @@ const Renderer3D = (() => {
     const t = performance.now() * 0.0002;
     camera.position.x = Math.sin(t) * 0.15;
     camera.position.y = 4.0 + Math.sin(t * 1.6) * 0.05;
-
     if (root) {
       root.position.x += (terrainX - root.position.x) * Math.min(1, dt * 6);
       root.position.z += (terrainZ - root.position.z) * Math.min(1, dt * 6);
@@ -803,10 +806,8 @@ const Renderer3D = (() => {
   }
 
   function nudgeTerrain(dx, dz) { terrainX -= dx; terrainZ -= dz; }
-
   function isReady(){ return ready; }
   function isLoaded(){ return loaded; }
-
   return { init, start, stop, applySnapshot, nudgeTerrain, isReady, isLoaded };
 })();
 
@@ -823,15 +824,8 @@ const HEX01_Bus = (() => {
 
 function HEX01_Snapshot() {
   return {
-    energy: S.energy,
-    roverState: S.roverState,
-    stormActive: S.stormActive,
-    nodeNearby: S.nodeNearby,
-    currentTerrain: {
-      name: S.currentTerrain.name,
-      complexityIndex: S.currentTerrain.complexityIndex,
-      hazards: { ...S.currentTerrain.hazards }
-    },
+    energy: S.energy, roverState: S.roverState, stormActive: S.stormActive, nodeNearby: S.nodeNearby,
+    currentTerrain: { name: S.currentTerrain.name, complexityIndex: S.currentTerrain.complexityIndex, hazards: { ...S.currentTerrain.hazards } },
     lastDir: S._lastDir
   };
 }
@@ -845,41 +839,25 @@ HEX01_Bus.on('stateChange', snap => {
    ============================================================ */
 function nowISO(){ return new Date().toISOString(); }
 function mkRunId(){
-  const t = Date.now().toString(36);
-  const r = Math.random().toString(36).slice(2,8);
+  const t = Date.now().toString(36), r = Math.random().toString(36).slice(2,8);
   return `HEX01-${t}-${r}`.toUpperCase();
 }
-function logEvent(type, data = {}){
-  S.log.push({ t: nowISO(), type, ...data });
-  if (S.log.length > 150) S.log.splice(0, S.log.length - 150);
-}
-function setSubmitStatus(text, cls){
-  const el = document.getElementById('submit-status');
-  if (!el) return;
-  el.textContent = text;
-  el.className = 'status-pill ' + (cls || '');
-}
+function logEvent(type, data = {}){ S.log.push({ t: nowISO(), type, ...data }); if (S.log.length > 150) S.log.splice(0, S.log.length - 150); }
+function setSubmitStatus(text, cls){ const el = document.getElementById('submit-status'); if (!el) return; el.textContent = text; el.className = 'status-pill ' + (cls || ''); }
 function buildResearchPacket(){
   const total = S.metrics.correct + S.metrics.wrong;
   const acc = total > 0 ? (S.metrics.correct / total) : null;
   return {
-    schema: "HEX01_REVIEW_PACKET_V1",
-    runId: S.runId,
-    startedAt: S.startTs,
-    endedAt: S.endedTs,
+    schema: "HEX01_REVIEW_PACKET_V1", runId: S.runId, startedAt: S.startTs, endedAt: S.endedTs,
     operator: {
       name: (document.getElementById('op-name')?.value || "").trim() || null,
       email: (document.getElementById('op-email')?.value || "").trim() || null,
       notes: (document.getElementById('op-notes')?.value || "").trim() || null
     },
     finalState: {
-      energy: Math.max(0, Math.floor(S.energy)),
-      validation: S.validation,
-      latencySeconds: Math.floor(S.simLatencySeconds),
-      playableLatencyMs: Math.floor(S.playableLatencyMs),
-      lastDir: S._lastDir,
-      terrain: S.currentTerrain?.id || null,
-      stormActive: !!S.stormActive
+      energy: Math.max(0, Math.floor(S.energy)), validation: S.validation,
+      latencySeconds: Math.floor(S.simLatencySeconds), playableLatencyMs: Math.floor(S.playableLatencyMs),
+      lastDir: S._lastDir, terrain: S.currentTerrain?.id || null, stormActive: !!S.stormActive
     },
     metrics: { ...S.metrics, decisionAccuracy: acc === null ? null : Math.round(acc * 1000) / 10 },
     eventLog: S.log
@@ -889,66 +867,28 @@ function buildResearchPacket(){
 async function sendToDev(){
   const packet = buildResearchPacket();
   setSubmitStatus('STATUS: SENDING…', 'warn');
-
   if (DEV_WEBHOOK_URL && DEV_WEBHOOK_URL.trim()) {
     try {
-      const res = await fetch(DEV_WEBHOOK_URL, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify(packet)
-      });
+      const res = await fetch(DEV_WEBHOOK_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(packet) });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       setSubmitStatus('STATUS: SENT ✓ DEV REVIEW QUEUED', 'ok');
-      logToast('PACKET SENT TO DEV TEAM');
-      logEvent('DEV_SUBMIT', { via:'webhook', ok:true });
-      return;
-    } catch (e) {
-      setSubmitStatus('STATUS: WEBHOOK FAILED · FALLBACK', 'bad');
-      logEvent('DEV_SUBMIT', { via:'webhook', ok:false, err:String(e) });
-    }
+      logToast('PACKET SENT TO DEV TEAM'); logEvent('DEV_SUBMIT', { via:'webhook', ok:true }); return;
+    } catch (e) { setSubmitStatus('STATUS: WEBHOOK FAILED · FALLBACK', 'bad'); logEvent('DEV_SUBMIT', { via:'webhook', ok:false, err:String(e) }); }
   }
-
   try {
     const subject = encodeURIComponent(`HEX-01 Review Packet · ${packet.runId}`);
-    const bodyObj = {
-      runId: packet.runId,
-      summary: {
-        validation: packet.finalState.validation,
-        energy: packet.finalState.energy,
-        decisionAccuracy: packet.metrics.decisionAccuracy,
-        riskIndex: packet.metrics.slips + packet.metrics.storms,
-        latencyPenaltySeconds: packet.metrics.latencyPenaltySeconds
-      },
-      note: "If feasible, please forward consolidated review to ISRO."
-    };
-    const body = encodeURIComponent(
-      "HEX-01 DEV REVIEW REQUEST\n\n" +
-      JSON.stringify(bodyObj, null, 2) +
-      "\n\n(Use COPY PACKET for full JSON.)"
-    );
+    const bodyObj = { runId: packet.runId, summary: { validation: packet.finalState.validation, energy: packet.finalState.energy, decisionAccuracy: packet.metrics.decisionAccuracy, riskIndex: packet.metrics.slips + packet.metrics.storms, latencyPenaltySeconds: packet.metrics.latencyPenaltySeconds }, note: "If feasible, please forward consolidated review to ISRO." };
+    const body = encodeURIComponent("HEX-01 DEV REVIEW REQUEST\n\n" + JSON.stringify(bodyObj, null, 2) + "\n\n(Use COPY PACKET for full JSON.)");
     window.location.href = `mailto:${DEV_FALLBACK_EMAIL}?subject=${subject}&body=${body}`;
     setSubmitStatus('STATUS: EMAIL DRAFT OPENED · SEND MANUALLY', 'ok');
-    logToast('EMAIL DRAFT GENERATED');
-    logEvent('DEV_SUBMIT', { via:'mailto', ok:true });
-  } catch (e) {
-    setSubmitStatus('STATUS: SEND FAILED · USE COPY PACKET', 'bad');
-    logToast('ERROR: UNABLE TO OPEN EMAIL CLIENT');
-    logEvent('DEV_SUBMIT', { via:'mailto', ok:false, err:String(e) });
-  }
+    logToast('EMAIL DRAFT GENERATED'); logEvent('DEV_SUBMIT', { via:'mailto', ok:true });
+  } catch (e) { setSubmitStatus('STATUS: SEND FAILED · USE COPY PACKET', 'bad'); logToast('ERROR: UNABLE TO OPEN EMAIL CLIENT'); logEvent('DEV_SUBMIT', { via:'mailto', ok:false, err:String(e) }); }
 }
 
 async function copyPacket(){
   const txt = JSON.stringify(buildResearchPacket(), null, 2);
-  try {
-    await navigator.clipboard.writeText(txt);
-    setSubmitStatus('STATUS: COPIED ✓ (PASTE TO DEV)', 'ok');
-    logToast('PACKET COPIED');
-    logEvent('PACKET_COPY', {});
-  } catch {
-    prompt('Copy this packet:', txt);
-    setSubmitStatus('STATUS: MANUAL COPY (PROMPT)', 'warn');
-    logEvent('PACKET_COPY', { fallback:true });
-  }
+  try { await navigator.clipboard.writeText(txt); setSubmitStatus('STATUS: COPIED ✓ (PASTE TO DEV)', 'ok'); logToast('PACKET COPIED'); logEvent('PACKET_COPY', {}); }
+  catch { prompt('Copy this packet:', txt); setSubmitStatus('STATUS: MANUAL COPY (PROMPT)', 'warn'); logEvent('PACKET_COPY', { fallback:true }); }
 }
 
 /* ============================================================
@@ -967,39 +907,28 @@ function updateUI(){
   const pct = Math.max(0, Math.floor(S.energy));
   document.getElementById('eb-fill').style.width = pct + '%';
   document.getElementById('energy-text').textContent = pct + '%';
-
   const fill = document.getElementById('eb-fill');
   fill.style.background = pct < 15 ? 'var(--red)' : pct < 30 ? 'var(--amber)' : 'var(--accent)';
-
-  const mins = Math.floor(S.simLatencySeconds / 60);
-  const secs = Math.floor(S.simLatencySeconds % 60);
+  const mins = Math.floor(S.simLatencySeconds / 60), secs = Math.floor(S.simLatencySeconds % 60);
   document.getElementById('latency-text').innerHTML = `<span class="sig-dot"></span>${mins}m ${secs}s`;
-
   document.getElementById('val-text').textContent = S.validation + ' pts';
   document.getElementById('val-chip-val').textContent = S.validation;
-
   document.getElementById('to-name').textContent = S.currentTerrain.name.toUpperCase();
   document.getElementById('to-cmplx').textContent = S.currentTerrain.complexityIndex;
   document.getElementById('to-slip').textContent = (S.currentTerrain.hazards.slipProbability * 100).toFixed(0) + '%';
-
   const stateEl = document.getElementById('sr-state');
   stateEl.textContent = S.roverState;
   stateEl.className = 'sys-val ' + (S.roverState === 'IDLE' ? 'ok' : S.roverState === 'SCANNING' ? 'warn' : (S.roverState === 'OFFLINE' ? 'bad' : ''));
-
   document.getElementById('sr-temp').textContent = S.stormActive ? '-85.4°C' : '-54.2°C';
   const solarEl = document.getElementById('sr-solar');
   solarEl.textContent = S.stormActive ? 'COMPROMISED' : 'OPTIMAL';
   solarEl.className = 'sys-val ' + (S.stormActive ? 'warn' : 'ok');
-
   const rsb = document.getElementById('rsb');
   rsb.textContent = S.roverState;
   rsb.className = 'rover-state-badge ' + (String(S.roverState).includes('MOVING') ? 'moving' : S.roverState === 'SCANNING' ? 'scanning' : '');
-
-  // SCAN BUTTONS + LOGIC (ENABLED)
   const scanBtn = document.getElementById('scan-btn');
   const can = canScanNow();
   scanBtn.className = 'scan-btn' + (can ? ' ready' : '');
-
   const scnBtn = document.getElementById('d-scan');
   if (scnBtn) {
     scnBtn.style.borderColor = can ? 'var(--accent)' : '';
@@ -1007,29 +936,20 @@ function updateUI(){
     scnBtn.style.boxShadow = can ? '0 0 8px rgba(0,200,255,0.3)' : '';
     scnBtn.style.cursor = can ? 'pointer' : 'not-allowed';
   }
-
   document.getElementById('node-pill').classList.toggle('visible', S.nodeNearby);
   document.getElementById('storm-badge').classList.toggle('visible', S.stormActive);
   document.getElementById('storm-veil').classList.toggle('active', S.stormActive);
   document.getElementById('hb-veil').classList.toggle('pulse', S.energy < 15);
 
   if (S.energy <= 0 && !S.isOffline) {
-    S.energy = 0;
-    S.isOffline = true;
-    S.roverState = 'OFFLINE';
-    S.endedTs = nowISO();
+    S.energy = 0; S.isOffline = true; S.roverState = 'OFFLINE'; S.endedTs = nowISO();
     logEvent('RUN_END', { reason:'ENERGY_DEPLETED' });
-
-    clearInterval(loops.solar);
-    clearInterval(loops.nodes);
-
+    clearInterval(loops.solar); clearInterval(loops.nodes);
     document.getElementById('result-modal').classList.remove('open');
     document.getElementById('challenge-modal').classList.remove('open');
-
     logToast('OFFLINE · ENTERING RESEARCH MODE');
     openResearchModal();
   }
-
   HEX01_Bus.dispatch('stateChange', HEX01_Snapshot());
 }
 
@@ -1037,36 +957,23 @@ function openResearchModal(){
   const packet = buildResearchPacket();
   const total = S.metrics.correct + S.metrics.wrong;
   const accPct = total ? Math.round((S.metrics.correct / total) * 100) : null;
-
   document.getElementById('rg-val').textContent = `${S.validation} pts`;
   document.getElementById('rg-val-mini').textContent = `${Math.floor(S.validation/10)} validated tiles unlocked`;
-
   const accEl = document.getElementById('rg-acc');
   accEl.textContent = (accPct === null) ? '—' : `${accPct}%`;
   accEl.className = 'r-v ' + (accPct === null ? '' : (accPct >= 70 ? 'good' : accPct >= 45 ? 'warn' : 'bad'));
   document.getElementById('rg-acc-mini').textContent = `${S.metrics.correct} correct / ${total} total analyses`;
-
   const risk = S.metrics.slips + S.metrics.storms;
   const riskEl = document.getElementById('rg-risk');
   riskEl.textContent = `${risk}`;
   riskEl.className = 'r-v ' + (risk <= 2 ? 'good' : risk <= 5 ? 'warn' : 'bad');
   document.getElementById('rg-risk-mini').textContent = `${S.metrics.slips} slips · ${S.metrics.storms} storms`;
-
   const latEl = document.getElementById('rg-lat');
   latEl.textContent = `+${S.metrics.latencyPenaltySeconds}s`;
   latEl.className = 'r-v ' + (S.metrics.latencyPenaltySeconds <= 120 ? 'good' : S.metrics.latencyPenaltySeconds <= 360 ? 'warn' : 'bad');
   document.getElementById('rg-lat-mini').textContent = `playable latency now ${Math.floor(S.playableLatencyMs)}ms`;
-
-  const previewObj = {
-    runId: packet.runId,
-    validation: packet.finalState.validation,
-    energy: packet.finalState.energy,
-    accuracy: packet.metrics.decisionAccuracy,
-    riskIndex: risk,
-    latencyPenaltySeconds: packet.metrics.latencyPenaltySeconds
-  };
+  const previewObj = { runId: packet.runId, validation: packet.finalState.validation, energy: packet.finalState.energy, accuracy: packet.metrics.decisionAccuracy, riskIndex: risk, latencyPenaltySeconds: packet.metrics.latencyPenaltySeconds };
   document.getElementById('packet-preview').textContent = JSON.stringify(previewObj, null, 2);
-
   setSubmitStatus('STATUS: READY · NOT SENT', '');
   document.getElementById('research-modal').classList.add('open');
 }
@@ -1074,14 +981,8 @@ function openResearchModal(){
 function initiateControl(){
   document.getElementById('boot-screen').classList.remove('active');
   document.getElementById('sim-screen').classList.add('active');
-
-  S.runId = mkRunId();
-  S.startTs = nowISO();
-  S.endedTs = null;
-  S.isOffline = false;
-  S.log = [];
+  S.runId = mkRunId(); S.startTs = nowISO(); S.endedTs = null; S.isOffline = false; S.log = [];
   logEvent('RUN_START', { runId:S.runId });
-
   const ok3d = Renderer3D.init();
   if (ok3d) {
     use3D = true;
@@ -1100,36 +1001,24 @@ function initiateControl(){
     document.getElementById('threejs-canvas').style.display = 'none';
     initCanvas2d(); renderLoop2d();
   }
-
-  updateUI();
-  startLoops();
+  updateUI(); startLoops();
 }
 
 function endSim(){
   document.getElementById('research-modal').classList.remove('open');
   document.getElementById('result-modal').classList.remove('open');
   document.getElementById('challenge-modal').classList.remove('open');
-
   document.getElementById('sim-screen').classList.remove('active');
   document.getElementById('boot-screen').classList.add('active');
-
-  clearInterval(loops.solar);
-  clearInterval(loops.nodes);
-
+  clearInterval(loops.solar); clearInterval(loops.nodes);
   if (use3D) Renderer3D.stop();
   if (rAF2d) { cancelAnimationFrame(rAF2d); rAF2d = null; }
-
   S.energy = 84; S.validation = 0; S.roverState = 'IDLE'; S.stormActive = false;
-  S.playableLatencyMs = 1200;
-  S.simLatencySeconds = MISSION_CONFIG.communications.latency.averageMs / 1000;
+  S.playableLatencyMs = 1200; S.simLatencySeconds = MISSION_CONFIG.communications.latency.averageMs / 1000;
   S.nodeNearby = false; S._lastDir = null; S.currentTerrain = TERRAIN_DATABASE[0];
-
   S.runId=null; S.startTs=null; S.endedTs=null; S.isOffline=false;
   S.metrics = { moves:0, scans:0, challenges:0, correct:0, wrong:0, slips:0, storms:0, latencyPenaltySeconds:0, energySpentMoves:0, energySpentScans:0, energyPenaltyWrong:0 };
-  S.log = [];
-  challengeIdx = 0;
-  selectedChoiceIdx = null;
-
+  S.log = []; challengeIdx = 0; selectedChoiceIdx = null;
   updateUI();
 }
 
@@ -1137,7 +1026,6 @@ function endSim(){
    LOOPS
    ============================================================ */
 function startLoops(){
-  // solar recharge (kept simple)
   loops.solar = setInterval(() => {
     if (S.isOffline) return;
     if (S.roverState === 'IDLE' && S.energy < 100) {
@@ -1149,38 +1037,16 @@ function startLoops(){
     }
   }, 2000);
 
-  // node discovery: if moving, chance to find node; node persists 12s
   loops.nodes = setInterval(() => {
     if (S.isOffline) return;
-
-    // optional dust storm toggles (rare) - also counts as risk
     if (!S.stormActive && Math.random() < 0.03) {
-      S.stormActive = true;
-      S.metrics.storms += 1;
-      logEvent('STORM_START', {});
-      logToast('DUST STORM · VISIBILITY REDUCED');
-      updateUI();
-      setTimeout(() => {
-        if (S.isOffline) return;
-        S.stormActive = false;
-        logEvent('STORM_END', {});
-        logToast('STORM CLEARED · SOLAR RESTORED');
-        updateUI();
-      }, 12000);
+      S.stormActive = true; S.metrics.storms += 1;
+      logEvent('STORM_START', {}); logToast('DUST STORM · VISIBILITY REDUCED'); updateUI();
+      setTimeout(() => { if (S.isOffline) return; S.stormActive = false; logEvent('STORM_END', {}); logToast('STORM CLEARED · SOLAR RESTORED'); updateUI(); }, 12000);
     }
-
     if (S.roverState === 'MOVING' && !S.nodeNearby && Math.random() < 0.35) {
-      S.nodeNearby = true;
-      logEvent('NODE_NEARBY', {});
-      logToast('GEO-NODE PROXIMITY ALERT — SCAN ENABLED');
-      updateUI();
-
-      setTimeout(() => {
-        if (S.isOffline) return;
-        S.nodeNearby = false;
-        logToast('GEO-NODE WINDOW CLOSED');
-        updateUI();
-      }, 12000);
+      S.nodeNearby = true; logEvent('NODE_NEARBY', {}); logToast('GEO-NODE PROXIMITY ALERT — SCAN ENABLED'); updateUI();
+      setTimeout(() => { if (S.isOffline) return; S.nodeNearby = false; logToast('GEO-NODE WINDOW CLOSED'); updateUI(); }, 12000);
     }
   }, 2500);
 }
@@ -1191,18 +1057,11 @@ function startLoops(){
 function move(dir){
   if (S.isOffline) return;
   if (S.roverState !== 'IDLE' || S.energy <= 0) return;
-
-  S._lastDir = dir;
-  S.roverState = 'MOVING_QUEUED';
-  logToast(`CMD [MOVE ${dir}] TRANSMITTING…`);
-  logEvent('MOVE_QUEUED', { dir });
-
+  S._lastDir = dir; S.roverState = 'MOVING_QUEUED';
+  logToast(`CMD [MOVE ${dir}] TRANSMITTING…`); logEvent('MOVE_QUEUED', { dir });
   const btn = document.getElementById('d-' + dir);
   if (btn) btn.classList.add('lit');
-
-  document.getElementById('lat-banner').classList.add('visible');
-  updateUI();
-
+  document.getElementById('lat-banner').classList.add('visible'); updateUI();
   setTimeout(() => {
     if (S.isOffline) return;
     if (btn) btn.classList.remove('lit');
@@ -1213,79 +1072,46 @@ function move(dir){
 
 function executeMove(dir){
   if (S.isOffline) return;
-
   S.roverState = 'MOVING';
   S.currentTerrain = TERRAIN_DATABASE[Math.floor(Math.random() * TERRAIN_DATABASE.length)];
   S.metrics.moves += 1;
-
   const drain = MISSION_CONFIG.locomotion.baseEnergyDrainPerMove * S.currentTerrain.hazards.costMult;
-  S.energy -= drain;
-  S.metrics.energySpentMoves += drain;
-
+  S.energy -= drain; S.metrics.energySpentMoves += drain;
   const v = DIR_VECTORS[dir] || [0,0];
   if (use3D) Renderer3D.nudgeTerrain(v[0] * 0.55, v[1] * 0.55);
-
   if (Math.random() < S.currentTerrain.hazards.slipProbability) {
     logToast('HAZARD: WHEEL SLIP — EXTRA POWER DRAWN');
-    S.energy -= 2.5;
-    S.metrics.slips += 1;
-    S.metrics.energySpentMoves += 2.5;
+    S.energy -= 2.5; S.metrics.slips += 1; S.metrics.energySpentMoves += 2.5;
     logEvent('SLIP', { terrain:S.currentTerrain.id, extraDrain:2.5 });
-  } else {
-    logToast(`MOVED ${dir} · TERRAIN: ${S.currentTerrain.name.toUpperCase()}`);
-  }
-
+  } else { logToast(`MOVED ${dir} · TERRAIN: ${S.currentTerrain.name.toUpperCase()}`); }
   logEvent('MOVE_EXEC', { dir, terrain:S.currentTerrain.id, drain });
-
-  setTimeout(() => {
-    if (S.isOffline) return;
-    S.roverState = 'IDLE';
-    updateUI();
-  }, 900);
-
+  setTimeout(() => { if (S.isOffline) return; S.roverState = 'IDLE'; updateUI(); }, 900);
   updateUI();
 }
 
 /* ============================================================
-   SCAN (ENABLED + STRICT LOGIC)
+   SCAN
    ============================================================ */
 function startScan(){
   if (S.isOffline) return;
-
-  // main gate
   if (!canScanNow()) {
     if (S.roverState !== 'IDLE') { logToast('BUSY: WAIT FOR ROVER IDLE'); return; }
     if (S.energy < MISSION_CONFIG.instruments.apxs_spectrometer.energyCostPct) { logToast('ERROR: INSUFFICIENT ENERGY'); updateUI(); return; }
     if (REQUIRE_NODE_FOR_SCAN && !S.nodeNearby) { logToast('NO TARGET: MOVE TO GEO-NODE TO SCAN'); updateUI(); return; }
     return;
   }
-
-  S.roverState = 'SCANNING';
-  S.metrics.scans += 1;
-  logToast('APXS SCAN INITIATED — PROCESSING…');
-  logEvent('SCAN_START', { nodeNearby: S.nodeNearby });
-
+  S.roverState = 'SCANNING'; S.metrics.scans += 1;
+  logToast('APXS SCAN INITIATED — PROCESSING…'); logEvent('SCAN_START', { nodeNearby: S.nodeNearby });
   document.getElementById('cam-data').textContent = 'SCANNING…\nANALYSING…\nPROCESSING…';
-  document.getElementById('scan-sweep').classList.add('active');
-  updateUI();
-
+  document.getElementById('scan-sweep').classList.add('active'); updateUI();
   setTimeout(() => {
     if (S.isOffline) return;
-
     const cost = MISSION_CONFIG.instruments.apxs_spectrometer.energyCostPct;
-    S.energy -= cost;
-    S.metrics.energySpentScans += cost;
-
+    S.energy -= cost; S.metrics.energySpentScans += cost;
     document.getElementById('scan-sweep').classList.remove('active');
     document.getElementById('cam-data').innerHTML = 'FOCAL 50mm<br>ISO 800<br>EXP 1/250';
-
-    // consume node window (target used)
-    S.nodeNearby = false;
-    S.roverState = 'IDLE';
-
-    logEvent('SCAN_END', { energyCostPct: cost });
-    updateUI();
-    showChallenge();
+    S.nodeNearby = false; S.roverState = 'IDLE';
+    logEvent('SCAN_END', { energyCostPct: cost }); updateUI(); showChallenge();
   }, S.playableLatencyMs);
 }
 
@@ -1294,41 +1120,28 @@ function startScan(){
    ============================================================ */
 function showChallenge(){
   if (S.isOffline) return;
-
   const ch = CHALLENGES[challengeIdx % CHALLENGES.length];
-  selectedChoiceIdx = null;
-  S.metrics.challenges += 1;
+  selectedChoiceIdx = null; S.metrics.challenges += 1;
   logEvent('CHALLENGE_OPEN', { id: ch.id });
-
   document.getElementById('c-qid').textContent = '◈ ' + ch.id + ' · ' + ch.instrument;
-
   const diffEl = document.getElementById('c-diff');
   diffEl.textContent = ch.difficulty;
-  diffEl.className = 'difficulty-badge ' + (ch.difficulty === 'CRITICAL' ? 'diff-critical' :
-                                           ch.difficulty === 'PRECISION' ? 'diff-precision' : 'diff-discovery');
-
+  diffEl.className = 'difficulty-badge ' + (ch.difficulty === 'CRITICAL' ? 'diff-critical' : ch.difficulty === 'PRECISION' ? 'diff-precision' : 'diff-discovery');
   document.getElementById('c-title').textContent = ch.title;
   document.getElementById('c-sub').textContent = ch.sub;
   document.getElementById('q-text').textContent = ch.question;
-
   document.getElementById('explanation-box').style.display = 'none';
   document.getElementById('exp-text').textContent = '';
-
   const div = document.getElementById('choices-div');
   div.innerHTML = '';
   ch.choices.forEach((c, i) => {
     const btn = document.createElement('button');
-    btn.className = 'c-btn';
-    btn.textContent = c.text;
+    btn.className = 'c-btn'; btn.textContent = c.text;
     btn.onclick = () => selectChoice(i);
     div.appendChild(btn);
   });
-
   const sb = document.getElementById('submit-btn');
-  sb.style.display = 'none';
-  sb.textContent = 'TRANSMIT ANALYSIS';
-  sb.onclick = submitAnswer;
-
+  sb.style.display = 'none'; sb.textContent = 'TRANSMIT ANALYSIS'; sb.onclick = submitAnswer;
   document.getElementById('challenge-modal').classList.add('open');
 }
 
@@ -1341,78 +1154,47 @@ function selectChoice(idx){
 function submitAnswer(){
   if (S.isOffline) return;
   if (selectedChoiceIdx === null) return;
-
   const ch = CHALLENGES[challengeIdx % CHALLENGES.length];
   const correct = ch.choices[selectedChoiceIdx].correct;
-
   document.querySelectorAll('.c-btn').forEach((b,i)=>{
     b.onclick = null;
     if (ch.choices[i].correct) b.classList.add('correct');
     else if (i === selectedChoiceIdx && !correct) b.classList.add('wrong');
   });
-
   document.getElementById('exp-text').textContent = ch.explanation || '';
   document.getElementById('explanation-box').style.display = 'block';
-
   logEvent('CHALLENGE_SUBMIT', { id: ch.id, selectedIdx: selectedChoiceIdx, correct });
-
   const sb = document.getElementById('submit-btn');
   sb.textContent = correct ? 'CONFIRMED · CONTINUE MISSION' : 'ACKNOWLEDGED · CONTINUE';
   sb.style.display = 'block';
-  sb.onclick = () => {
-    document.getElementById('challenge-modal').classList.remove('open');
-    applyResult(correct);
-  };
+  sb.onclick = () => { document.getElementById('challenge-modal').classList.remove('open'); applyResult(correct); };
 }
 
 function applyResult(correct){
   if (S.isOffline) return;
-
   let energyDelta, valDelta, latDelta;
-
   if (correct) {
-    S.validation += 10;
-    S.metrics.correct += 1;
-    energyDelta = +8;
-    valDelta = '+10 pts';
-    latDelta = '—';
-    logToast('VALIDATION SUCCESS · DATA PACKET LOGGED');
-    challengeIdx++;
+    S.validation += 10; S.metrics.correct += 1; energyDelta = +8; valDelta = '+10 pts'; latDelta = '—';
+    logToast('VALIDATION SUCCESS · DATA PACKET LOGGED'); challengeIdx++;
     S.energy = Math.min(100, S.energy + 8);
   } else {
-    S.energy -= 5;
-    S.metrics.wrong += 1;
-    S.metrics.energyPenaltyWrong += 5;
-    S.simLatencySeconds += 120;
-    S.metrics.latencyPenaltySeconds += 120;
-    S.playableLatencyMs += 300;
-    energyDelta = -5;
-    valDelta = '0 pts';
-    latDelta = '+120s';
+    S.energy -= 5; S.metrics.wrong += 1; S.metrics.energyPenaltyWrong += 5;
+    S.simLatencySeconds += 120; S.metrics.latencyPenaltySeconds += 120; S.playableLatencyMs += 300;
+    energyDelta = -5; valDelta = '0 pts'; latDelta = '+120s';
     logToast('ERROR: DATA INCONCLUSIVE · PENALTY APPLIED');
   }
-
   const _ch = CHALLENGES[(correct ? challengeIdx - 1 : challengeIdx) % CHALLENGES.length];
   document.getElementById('r-tag').textContent = correct ? '◈ LOGGED · ' + _ch.id : '✕ REJECTED · ' + _ch.id;
   document.getElementById('r-title').textContent = correct ? 'Sample Integrity Confirmed' : 'Analysis Inconclusive';
-  document.getElementById('r-sub').textContent = _ch.instrument + ' · ' + (correct
-    ? 'Data validated. Survey region unlocked.'
-    : 'Incorrect interpretation. Energy & latency penalty applied.');
-
+  document.getElementById('r-sub').textContent = _ch.instrument + ' · ' + (correct ? 'Data validated. Survey region unlocked.' : 'Incorrect interpretation. Energy & latency penalty applied.');
   const rE = document.getElementById('r-energy');
   rE.textContent = (energyDelta >= 0 ? '+' : '') + energyDelta + '%';
   rE.className = 'r-stat-val' + (energyDelta < 0 ? ' neg' : '');
-
   const rV = document.getElementById('r-val');
-  rV.textContent = valDelta;
-  rV.className = 'r-stat-val' + (valDelta === '0 pts' ? ' amber' : '');
-
+  rV.textContent = valDelta; rV.className = 'r-stat-val' + (valDelta === '0 pts' ? ' amber' : '');
   const rL = document.getElementById('r-lat');
-  rL.textContent = latDelta;
-  rL.className = 'r-stat-val' + (latDelta !== '—' ? ' neg' : '');
-
-  document.getElementById('result-modal').classList.add('open');
-  updateUI();
+  rL.textContent = latDelta; rL.className = 'r-stat-val' + (latDelta !== '—' ? ' neg' : '');
+  document.getElementById('result-modal').classList.add('open'); updateUI();
 }
 
 function closeResult(){ document.getElementById('result-modal').classList.remove('open'); }
@@ -1434,7 +1216,6 @@ const BOOT_LINES = [
   const log = document.getElementById('boot-log');
   const fill = document.getElementById('boot-progress-fill');
   const cta = document.getElementById('boot-cta');
-
   BOOT_LINES.forEach((line,i)=>{
     setTimeout(()=>{
       const el = document.createElement('div');
@@ -1447,20 +1228,46 @@ const BOOT_LINES = [
       fill.style.width = ((i+1)/BOOT_LINES.length*100) + '%';
     }, 320*(i+1));
   });
-
   setTimeout(()=>cta.classList.add('visible'), 320*(BOOT_LINES.length+1)+200);
 })();
 
-  
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('Service Worker registered.', reg))
-        .catch((err) => console.error('Service Worker registration failed.', err));
-    });
-  }
+/* ============================================================
+   PWA — SERVICE WORKER + INSTALL PROMPT
+   ============================================================ */
+let deferredPrompt = null;
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('[HEX-01] SW registered · scope:', reg.scope))
+      .catch(err => console.warn('[HEX-01] SW registration failed:', err));
+  });
+}
 
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('pwa-install-bar').classList.add('show');
+});
+
+document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  console.log('[HEX-01] Install outcome:', outcome);
+  deferredPrompt = null;
+  document.getElementById('pwa-install-bar').classList.remove('show');
+});
+
+document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
+  document.getElementById('pwa-install-bar').classList.remove('show');
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('[HEX-01] App installed');
+  document.getElementById('pwa-install-bar').classList.remove('show');
+  deferredPrompt = null;
+});
 </script>
 </body>
 </html>
