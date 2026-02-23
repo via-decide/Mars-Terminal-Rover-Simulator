@@ -1,12 +1,13 @@
 {
-  "name": "HEX-01 Mars Survey",
+  "name": "HEX-01 · Mars Geological Survey",
   "short_name": "HEX-01",
-  "description": "Mars Geological Survey Rover Simulation",
+  "description": "ISRO Mars Rover Simulator — Geological Survey Mission",
   "start_url": "./index.html",
-  "display": "standalone",
+  "display": "fullscreen",
+  "orientation": "landscape",
   "background_color": "#03050a",
   "theme_color": "#03050a",
-  "orientation": "portrait",
+  "categories": ["games", "education"],
   "icons": [
     {
       "src": "icon-192.png",
