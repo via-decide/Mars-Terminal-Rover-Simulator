@@ -178,6 +178,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;user-select:non
 
 .terrain-overlay{position:absolute;top:12px;left:12px;font-size:10px;color:var(--text-dim);line-height:1.8;letter-spacing:0.5px;z-index:5}
 .terrain-overlay .bright{color:var(--accent)}.terrain-overlay .warn{color:var(--amber)}
+/* Risk indicator in terrain overlay */
+.terrain-overlay .risk-val{color:var(--red)}
+
 .node-indicator{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:120px;height:120px;border-radius:50%;border:1px solid var(--accent);opacity:0;transition:opacity 0.5s;animation:node-pulse 2s ease-in-out infinite;pointer-events:none;z-index:5}
 .node-indicator.visible{opacity:0.4}
 @keyframes node-pulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.4}50%{transform:translate(-50%,-50%) scale(1.1);opacity:0.2}}
@@ -185,6 +188,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;user-select:non
 .cmd-feedback.show{opacity:1}
 .solar-glow-sim{position:absolute;inset:0;pointer-events:none;border:2px solid transparent;transition:border-color 0.5s,box-shadow 0.5s;z-index:4}
 .solar-glow-sim.active{border-color:rgba(255,179,71,0.2);box-shadow:inset 0 0 40px rgba(255,179,71,0.05)}
+.night-overlay{position:absolute;inset:0;background:rgba(0,5,20,0);pointer-events:none;transition:background 2s;z-index:3}
+.night-overlay.active{background:rgba(0,5,20,0.45)}
 .storm-overlay{position:absolute;inset:0;background:rgba(80,40,10,0);pointer-events:none;transition:background 1s;z-index:4}
 .storm-overlay.active{background:rgba(80,40,10,0.35)}
 .low-energy-frame{position:absolute;inset:0;pointer-events:none;animation:energy-pulse 1s ease-in-out infinite;opacity:0;border:3px solid var(--red);z-index:4}
@@ -197,6 +202,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;user-select:non
 .scan-corner{position:absolute;width:20px;height:20px;border-color:var(--accent);border-style:solid;opacity:0.7}
 .sc-tl{top:8px;left:8px;border-width:1px 0 0 1px}.sc-tr{top:8px;right:8px;border-width:1px 1px 0 0}
 .sc-bl{bottom:8px;left:8px;border-width:0 0 1px 1px}.sc-br{bottom:8px;right:8px;border-width:0 1px 1px 0}
+
+/* Risk budget indicator */
+.risk-bar-wrap{position:absolute;top:12px;right:12px;z-index:5;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.risk-bar-label{font-size:8px;color:var(--text-dim);letter-spacing:2px}
+.risk-bar-track{width:80px;height:4px;background:#1a0a0a;border:1px solid #3d1010}
+.risk-bar-fill{height:100%;background:var(--red);transition:width 0.6s ease}
+.risk-pct{font-size:9px;color:var(--red)}
 
 .bottom-panel{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border);background:var(--panel);flex-shrink:0;height:180px}
 .cam-feed{border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
@@ -248,6 +260,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;user-select:non
 .modal-btn.danger:hover{background:rgba(255,59,59,0.1)}
 .storm-icon{color:var(--amber);font-size:24px;margin-bottom:8px;text-align:center}
 .efail-modal .modal-title{color:var(--red)}
+/* Risk abort modal */
+.riskabort-modal .modal-title{color:var(--red)}
 
 /* ════════════════════════════════════
    RESEARCH / SEND TO DEV
@@ -431,10 +445,20 @@ textarea.inp{min-height:78px;resize:none;grid-column:1/-1}
       <div>TERRAIN: <span class="bright" id="terrainName">Basaltic Flats</span></div>
       <div>COMPLEXITY: <span class="warn" id="terrainComplex">4.2</span></div>
       <div>QUADRANT: <span id="quadrantVal">A3-07</span></div>
+      <div>DUST IDX: <span class="warn" id="dustVal">0.05</span></div>
+      <div>RISK: <span class="risk-val" id="riskVal">0</span><span style="color:var(--text-dim)">/100</span></div>
+      <div>SOL PHASE: <span id="solPhaseVal">DAY</span></div>
+    </div>
+    <!-- Risk bar top-right -->
+    <div class="risk-bar-wrap">
+      <div class="risk-bar-label">RISK BUDGET</div>
+      <div class="risk-bar-track"><div class="risk-bar-fill" id="riskBarFill" style="width:0%"></div></div>
+      <div class="risk-pct" id="riskBarPct">0%</div>
     </div>
     <div class="node-indicator" id="nodeRing"></div>
     <div class="cmd-feedback" id="cmdFeedback">CMD QUEUED →</div>
     <div class="solar-glow-sim" id="solarGlow"></div>
+    <div class="night-overlay" id="nightOverlay"></div>
     <div class="storm-overlay" id="stormOverlay"></div>
     <div class="low-energy-frame" id="lowEnergyFrame"></div>
     <div class="scanning-overlay" id="scanningOverlay">
@@ -516,7 +540,7 @@ textarea.inp{min-height:78px;resize:none;grid-column:1/-1}
     <p style="font-size:10px;color:var(--text-dim);line-height:1.9;margin-bottom:14px">Visibility: DEGRADED<br>Solar efficiency: −40%<br>Signal latency: +3.2s<br><br>Recommend: Cease movement. Preserve energy reserves.</p>
     <div style="display:flex;gap:8px">
       <button class="modal-btn" onclick="pauseForStorm()">HALT & WAIT</button>
-      <button class="modal-btn secondary" onclick="closeModal('stormModal')">OVERRIDE</button>
+      <button class="modal-btn secondary" onclick="overrideStorm()">OVERRIDE</button>
     </div>
   </div>
 </div>
@@ -526,6 +550,20 @@ textarea.inp{min-height:78px;resize:none;grid-column:1/-1}
     <div class="modal-title">// ENERGY DEPLETED</div>
     <p style="font-size:10px;color:var(--text-dim);line-height:2;margin-bottom:14px">HEX-01 has entered power-save mode.<br>Awaiting solar recharge cycle.<br>Est. recovery: 2h 18m [Mars Sol]</p>
     <button class="modal-btn" onclick="solarRecover()">WAIT FOR SOLAR RECHARGE</button>
+    <button class="modal-btn secondary" onclick="openResearchModal()">SUBMIT MISSION DATA →</button>
+    <button class="modal-btn danger" onclick="resetToIntro()">END SIMULATION</button>
+  </div>
+</div>
+
+<!-- Risk budget exceeded modal -->
+<div class="modal-overlay hidden" id="riskAbortModal">
+  <div class="modal-box riskabort-modal">
+    <div class="modal-title">// MISSION ABORT — RISK BUDGET EXCEEDED</div>
+    <p style="font-size:10px;color:var(--text-dim);line-height:2;margin-bottom:14px">
+      Cumulative risk index has reached critical threshold.<br>
+      HEX-01 has been placed in emergency safe mode by ground control.<br>
+      Mission integrity: COMPROMISED
+    </p>
     <button class="modal-btn secondary" onclick="openResearchModal()">SUBMIT MISSION DATA →</button>
     <button class="modal-btn danger" onclick="resetToIntro()">END SIMULATION</button>
   </div>
@@ -572,16 +610,36 @@ const DEV_WEBHOOK_URL    = '';
 const DEV_FALLBACK_EMAIL = 'dharam@viadecide.com';
 
 /* ════════════════════════════════════════════════════════════
+   MARS CONSTANTS  (from constraint engine)
+════════════════════════════════════════════════════════════ */
+const MARS = {
+  SOL_MINUTES : 1477,
+  NIGHT_START : 0.78,   // fraction of sol when night begins
+  NIGHT_END   : 0.22,   // fraction of sol when night ends
+  MAX_RISK    : 100
+};
+
+/* ════════════════════════════════════════════════════════════
    STATE
 ════════════════════════════════════════════════════════════ */
 const S = {
+  /* original sim state */
   energy:84, validation:0, roverState:'IDLE',
   stormActive:false, isCharging:false, nodeProximity:0,
   nodeCount:0, stepCount:0, latencyMs:1200, scanningActive:false,
   runId:null, startTs:null, endedTs:null,
   metrics:{moves:0,scans:0,correct:0,wrong:0,slips:0,storms:0,latencyPenalty:0},
-  log:[]
+  log:[],
+
+  /* constraint engine state */
+  solNumber          : 127,
+  timeFrac           : 0.42,   // current fraction of the Mars sol (0–1)
+  dust               : 0.05,   // dust opacity (0–0.9)
+  risk               : 0,      // cumulative risk budget (0–100)
+  instrumentCooldown : 0,      // ticks until instrument is ready
+  instrumentReliability: 1.0   // degrades with extreme cold
 };
+
 const TERRAINS=[
   {name:'Basaltic Flats', complex:4.2,success:72,quadrant:'A3-07'},
   {name:'Regolith Field', complex:5.8,success:61,quadrant:'A3-12'},
@@ -598,6 +656,120 @@ const CHALLENGES=[
   {q:"During APXS integration, the instrument stops recording real events and generates artificial counts at the lowest energy channel (lockup anomaly). Required mitigation?",options:[{t:'A. Increase integration time to 5 hours to override the buffer',correct:false},{t:'B. Power cycle and split long integrations into two shorter sessions',correct:true},{t:'C. Deploy arm to calibration slab to reset Curium-244 flux',correct:false}]},
 ];
 let currentChallenge=null, currentTerrain=TERRAINS[0], moveTimeout=null, ambientTimers=[];
+
+/* ════════════════════════════════════════════════════════════
+   CONSTRAINT ENGINE CORE
+════════════════════════════════════════════════════════════ */
+
+/** True if the rover is currently in the Martian night */
+function isNight(){
+  return (S.timeFrac > MARS.NIGHT_START || S.timeFrac < MARS.NIGHT_END);
+}
+
+/** Effective solar panel output fraction (0–1) */
+function solarEfficiency(){
+  const base = isNight() ? 0 : 1;
+  return base * (1 - S.dust);
+}
+
+/** Advance sol time by a fraction (rolls over at 1.0 → new sol) */
+function advanceTime(frac){
+  S.timeFrac += frac;
+  if(S.timeFrac >= 1){
+    S.timeFrac -= 1;
+    S.solNumber++;
+    toast('SOL ' + S.solNumber + ' — NEW MARTIAN DAY');
+  }
+}
+
+/** Instrument reliability degrades in extreme cold */
+function updateThermal(){
+  const temp = -70 + 40 * Math.sin(S.timeFrac * Math.PI * 2);
+  if(temp < -60){
+    S.instrumentReliability = Math.max(0.1, S.instrumentReliability - 0.01);
+  }
+  // Update cam feed temperature to reflect actual sol temperature
+  document.getElementById('tempVal').textContent = temp.toFixed(1) + '°C';
+}
+
+/** Dust accumulates; storms accelerate accumulation */
+function updateDust(){
+  S.dust += 0.002;
+  if(S.stormActive) S.dust += 0.02;
+  S.dust = Math.min(0.9, S.dust);
+}
+
+/** Energy changes based on sol phase — drains at night, trickle charges in day */
+function updateEnergy(){
+  if(isNight()){
+    S.energy -= 0.3;
+  } else {
+    S.energy += solarEfficiency() * 0.6;
+  }
+  S.energy = Math.max(0, Math.min(100, S.energy));
+}
+
+/** Random storm trigger (5% chance per move/scan tick) */
+function maybeRandomStorm(){
+  if(!S.stormActive && Math.random() < 0.05){
+    S.metrics.storms++;
+    triggerStorm();
+  }
+}
+
+/**
+ * Check cumulative risk budget.
+ * If exceeded, abort mission — mirrors the v2 constraint engine behaviour.
+ */
+function riskCheck(){
+  if(S.risk >= MARS.MAX_RISK){
+    S.endedTs = nowISO();
+    logEvent('RUN_END', {reason:'RISK_BUDGET_EXCEEDED', risk: S.risk});
+    closeAllModals();
+    document.getElementById('riskAbortModal').classList.remove('hidden');
+  }
+}
+
+/** Update all constraint-engine-derived UI elements */
+function updateConstraintUI(){
+  // Dust index
+  const dustEl = document.getElementById('dustVal');
+  if(dustEl) dustEl.textContent = S.dust.toFixed(3);
+
+  // Risk display
+  const riskEl = document.getElementById('riskVal');
+  if(riskEl) riskEl.textContent = Math.round(S.risk);
+
+  const riskPct = Math.min(100, S.risk);
+  const riskFill = document.getElementById('riskBarFill');
+  const riskBarPct = document.getElementById('riskBarPct');
+  if(riskFill){
+    riskFill.style.width = riskPct + '%';
+    // Colour gradient: green → amber → red
+    riskFill.style.background = riskPct >= 70 ? 'var(--red)' : riskPct >= 40 ? 'var(--amber)' : 'var(--accent)';
+  }
+  if(riskBarPct) riskBarPct.textContent = Math.round(riskPct) + '%';
+
+  // Sol phase label
+  const solPhaseEl = document.getElementById('solPhaseVal');
+  if(solPhaseEl){
+    solPhaseEl.textContent = isNight() ? 'NIGHT' : 'DAY';
+    solPhaseEl.style.color = isNight() ? 'var(--amber)' : 'var(--accent)';
+  }
+
+  // Night overlay
+  const nightEl = document.getElementById('nightOverlay');
+  if(nightEl){
+    nightEl.classList.toggle('active', isNight() && !S.stormActive);
+  }
+
+  // Solar glow only when actually generating power
+  const sgEl = document.getElementById('solarGlow');
+  if(sgEl && !S.isCharging){
+    const producing = !isNight() && !S.stormActive && S.roverState === 'IDLE';
+    sgEl.classList.toggle('active', producing);
+  }
+}
 
 /* ════════════════════════════════════════════════════════════
    INTRO — CURSOR
@@ -671,18 +843,27 @@ function enterSimulator(){
 function resetToIntro(){
   closeAllModals();
   document.getElementById('research-modal').classList.remove('open');
+  document.getElementById('riskAbortModal').classList.add('hidden');
   ambientTimers.forEach(t=>clearInterval(t));ambientTimers=[];clearTimeout(moveTimeout);
+
+  /* Reset original state */
   S.energy=84;S.validation=0;S.roverState='IDLE';S.stormActive=false;S.isCharging=false;
   S.nodeProximity=0;S.nodeCount=0;S.stepCount=0;S.latencyMs=1200;S.scanningActive=false;
   S.runId=null;S.startTs=null;S.endedTs=null;
   S.metrics={moves:0,scans:0,correct:0,wrong:0,slips:0,storms:0,latencyPenalty:0};S.log=[];
+
+  /* Reset constraint engine state */
+  S.solNumber=127; S.timeFrac=0.42; S.dust=0.05;
+  S.risk=0; S.instrumentCooldown=0; S.instrumentReliability=1.0;
+
   currentTerrain=TERRAINS[0];
   const rocks=document.getElementById('rocks');rocks.dataset.offset=0;rocks.style.transform='';
   document.getElementById('stormOverlay').classList.remove('active');
+  document.getElementById('nightOverlay').classList.remove('active');
   document.getElementById('solarGlow').classList.remove('active');
   document.getElementById('lowEnergyFrame').classList.remove('active');
   document.getElementById('latDot').classList.remove('high');
-  updateUI();updateValidationPips();
+  updateUI();updateValidationPips();updateConstraintUI();
   flash(()=>{
     document.getElementById('sim-screen').classList.remove('active');
     document.getElementById('intro-screen').classList.add('active');
@@ -695,39 +876,94 @@ function resetToIntro(){
 function startSim(){
   S.runId=mkRunId();S.startTs=nowISO();S.endedTs=null;S.log=[];
   logEvent('RUN_START',{runId:S.runId});
-  startAmbientLoop();startSolarCycle();startNodeProximityTimer();
-  updateUI();updateValidationPips();
+  startAmbientLoop();startSolarCycle();startNodeProximityTimer();startConstraintLoop();
+  updateUI();updateValidationPips();updateConstraintUI();
   toast('HEX-01 ONLINE — MISSION ACTIVE');
+}
+
+/**
+ * Constraint engine tick loop — runs every second (mirrors the setInterval
+ * in the v2 constraint engine).  Handles instrument cooldown, dust, thermal,
+ * and energy passage-of-time effects.
+ */
+function startConstraintLoop(){
+  const iv = setInterval(()=>{
+    if(!document.getElementById('sim-screen').classList.contains('active')) return;
+
+    // Instrument cooldown ticker
+    if(S.instrumentCooldown > 0) S.instrumentCooldown--;
+
+    // Passive time-based constraint updates
+    advanceTime(0.0007);      // ~1 min of Mars sol per real second (compressed)
+    updateThermal();
+    updateDust();
+    updateEnergy();           // night drain / solar trickle
+    updateUI();
+    updateConstraintUI();
+  }, 1000);
+  ambientTimers.push(iv);
 }
 
 function move(dir){
   if(S.roverState==='SCANNING'||S.scanningActive){toast('CANNOT MOVE DURING SCAN');return;}
   if(S.energy<=0){showEnergyFail();return;}
   if(S.energy<5){toast('CRITICAL ENERGY — MOVEMENT BLOCKED');return;}
+
   const fb=document.getElementById('cmdFeedback');
   fb.textContent=`CMD [${dir}] QUEUED →`;fb.classList.add('show');
   setState('MOVING');clearTimeout(moveTimeout);
+
   moveTimeout=setTimeout(()=>{
     fb.classList.remove('show');
+
+    /* ── Constraint engine: advance time & environmental state per move ── */
+    advanceTime(0.01);   // each move costs ~15 Mars minutes
+    updateThermal();
+    updateDust();
+    updateEnergy();
+
+    /* Dust slip → risk accumulation */
+    if(Math.random() < S.dust){
+      S.risk += 5;
+      S.metrics.slips++;
+      logEvent('DUST_SLIP', {dust: S.dust, riskNow: S.risk});
+      toast('TRACTION LOSS — DUST HAZARD DETECTED');
+    }
+
+    /* Check risk budget */
+    riskCheck();
+    if(S.risk >= MARS.MAX_RISK) return; // aborted
+
+    /* ── Original move logic ── */
     const drain=1.5+Math.random()*0.5;modEnergy(-drain);S.metrics.moves++;
     const rocks=document.getElementById('rocks');
     const shift={N:0,S:0,E:-2,W:2,NE:-1,NW:1,SE:-1,SW:1};
     const offset=parseFloat(rocks.dataset.offset||0)+(shift[dir]||0);
     rocks.dataset.offset=offset;rocks.style.transform=`translateX(${offset}px)`;
-    spawnDust();S.stepCount++;logEvent('MOVE',{dir,drain});
-    if(!S.stormActive&&Math.random()<0.04){S.metrics.storms++;triggerStorm();}
+    spawnDust();S.stepCount++;logEvent('MOVE',{dir,drain,risk:S.risk,dust:S.dust});
+
+    /* Storm trigger (uses constraint engine probability based on dust) */
+    maybeRandomStorm();
+
     S.nodeProximity+=0.15+Math.random()*0.1;
     if(S.nodeProximity>=1){S.nodeProximity=0;openNodeModal();}
-    updateNodeRing();setState('IDLE');updateUI();
+    updateNodeRing();setState('IDLE');updateUI();updateConstraintUI();
+
     if(S.energy<=0)showEnergyFail();
     else if(S.energy<15)document.getElementById('lowEnergyFrame').classList.add('active');
     else document.getElementById('lowEnergyFrame').classList.remove('active');
   },S.latencyMs);
+
   document.getElementById('roverMast').classList.add('moving');
   setTimeout(()=>document.getElementById('roverMast').classList.remove('moving'),S.latencyMs+300);
 }
 
 function scan(){
+  /* Instrument cooldown check (from constraint engine) */
+  if(S.instrumentCooldown > 0){
+    toast('INSTRUMENT COOLING — WAIT ' + S.instrumentCooldown + 's');
+    return;
+  }
   if(S.energy<8){toast('INSUFFICIENT ENERGY FOR SCAN');return;}
   if(S.scanningActive)return;
   if(S.roverState==='MOVING'){toast('CEASE MOVEMENT BEFORE SCANNING');return;}
@@ -746,13 +982,38 @@ function openNodeModal(){
 function startScan(){
   closeModal('nodeModal');
   if(S.energy<8){toast('INSUFFICIENT ENERGY');return;}
+
+  /* Constraint engine: scan cost & time advance */
+  advanceTime(0.02);  // ~30 Mars minutes for a scan
+  updateThermal();
+  updateDust();
+  updateEnergy();
+
   modEnergy(-8);S.scanningActive=true;S.metrics.scans++;setState('SCANNING');
   document.getElementById('scanningOverlay').classList.add('active');
   document.getElementById('stateVal').textContent='SCANNING...';
-  logEvent('SCAN_START',{terrain:currentTerrain.name});
+  logEvent('SCAN_START',{terrain:currentTerrain.name, dust:S.dust, reliability:S.instrumentReliability});
+
   setTimeout(()=>{
     document.getElementById('scanningOverlay').classList.remove('active');
-    S.scanningActive=false;setState('IDLE');openChallenge();
+    S.scanningActive=false;
+
+    /* Constraint engine: instrument reliability affects scan outcome */
+    const successChance = S.instrumentReliability - S.dust * 0.5;
+    if(Math.random() > successChance){
+      // Instrument glitch
+      S.risk += 4;
+      S.metrics.slips++;
+      toast('INSTRUMENT ANOMALY — SCAN DEGRADED');
+      logEvent('SCAN_ANOMALY', {successChance, risk:S.risk});
+    }
+
+    /* Instrument cooldown (from v2 engine: 3 ticks) */
+    S.instrumentCooldown = 3;
+
+    setState('IDLE');openChallenge();
+    riskCheck();
+    updateConstraintUI();
   },2200);
   updateUI();
 }
@@ -785,13 +1046,18 @@ function showResult(correct){
   if(correct){
     icon.textContent='✓';title.textContent='TRANSMISSION LOGGED';title.className='result-title';
     modEnergy(+12);S.validation=Math.min(5,S.validation+1);
-    delta.innerHTML='Energy: <span class="pos">+12%</span> &nbsp;|&nbsp; Validation: <span class="pos">+1</span>';
-    updateValidationPips();updateUI();
+    /* Correct answer slightly clears risk — reward good decisions */
+    S.risk = Math.max(0, S.risk - 3);
+    delta.innerHTML='Energy: <span class="pos">+12%</span> &nbsp;|&nbsp; Validation: <span class="pos">+1</span> &nbsp;|&nbsp; Risk: <span class="pos">−3</span>';
+    updateValidationPips();updateUI();updateConstraintUI();
   }else{
     icon.textContent='✗';title.textContent='ANALYSIS FAILED';title.className='result-title fail';
     modEnergy(-6);S.latencyMs=Math.min(3000,S.latencyMs+400);S.metrics.latencyPenalty+=400;
-    delta.innerHTML='Energy: <span class="neg">−6%</span> &nbsp;|&nbsp; Signal delay: <span class="neg">+0.4s</span>';
-    updateUI();
+    /* Wrong answer adds risk — poor analysis = mission risk */
+    S.risk += 4;
+    delta.innerHTML='Energy: <span class="neg">−6%</span> &nbsp;|&nbsp; Signal delay: <span class="neg">+0.4s</span> &nbsp;|&nbsp; Risk: <span class="neg">+4</span>';
+    updateUI();updateConstraintUI();
+    riskCheck();
   }
   document.getElementById('resultModal').classList.remove('hidden');
 }
@@ -802,11 +1068,14 @@ function triggerStorm(){
   document.getElementById('latDot').classList.add('high');
   S.latencyMs=Math.min(3500,S.latencyMs+800);
   document.getElementById('stormModal').classList.remove('hidden');
-  logEvent('STORM_START',{});
+  logEvent('STORM_START',{dust:S.dust, risk:S.risk});
 }
 
 function pauseForStorm(){
-  closeModal('stormModal');S.isCharging=true;
+  /* Constraint engine: HALT costs 2 risk (safe choice) */
+  closeModal('stormModal');
+  S.risk += 2;
+  S.isCharging=true;
   document.getElementById('solarGlow').classList.add('active');
   toast('HALTED — AWAITING STORM PASSAGE');
   setTimeout(()=>{
@@ -816,8 +1085,24 @@ function pauseForStorm(){
     document.getElementById('latDot').classList.remove('high');
     S.latencyMs=Math.max(1200,S.latencyMs-800);
     toast('STORM CLEARED — RESUMING OPERATIONS');
-    logEvent('STORM_END',{});
+    logEvent('STORM_END',{via:'HALT', risk:S.risk});
+    updateConstraintUI();
   },8000);
+  updateConstraintUI();
+}
+
+function overrideStorm(){
+  /* Constraint engine: OVERRIDE costs 8 risk (risky choice) */
+  S.risk += 8;
+  closeModal('stormModal');
+  S.stormActive=false;
+  document.getElementById('stormOverlay').classList.remove('active');
+  document.getElementById('latDot').classList.remove('high');
+  S.latencyMs=Math.max(1200,S.latencyMs-800);
+  toast('STORM OVERRIDE — HIGH RISK ACCEPTED (+8 RISK)');
+  logEvent('STORM_OVERRIDE',{risk:S.risk});
+  riskCheck();
+  updateConstraintUI();
 }
 
 function showEnergyFail(){
@@ -845,6 +1130,12 @@ function updateUI(){
   const fill=document.getElementById('energyFill');
   fill.style.background=e<15?'var(--red)':e<35?'var(--amber)':'var(--accent)';
   document.getElementById('energyPct').style.color=e<15?'var(--red)':e<35?'var(--amber)':'var(--text)';
+
+  // Sol info with actual constraint engine time
+  const hour=Math.floor(S.timeFrac*24);
+  const minute=Math.floor((S.timeFrac*24-hour)*60);
+  document.getElementById('solVal').textContent=
+    `SOL ${S.solNumber} · ${hour}:${String(minute).padStart(2,'0')} // ${(S.latencyMs/1000).toFixed(1)}s RTT`;
 }
 function updateTerrainOverlay(){
   document.getElementById('terrainName').textContent=currentTerrain.name;
@@ -854,28 +1145,31 @@ function updateTerrainOverlay(){
 function updateValidationPips(){document.querySelectorAll('.val-pip').forEach((p,i)=>p.classList.toggle('filled',i<S.validation));}
 function updateNodeRing(){document.getElementById('nodeRing').classList.toggle('visible',S.nodeProximity>0.5);}
 function closeModal(id){document.getElementById(id).classList.add('hidden');}
-function closeAllModals(){['nodeModal','challengeModal','resultModal','stormModal','efailModal'].forEach(id=>closeModal(id));}
+function closeAllModals(){['nodeModal','challengeModal','resultModal','stormModal','efailModal','riskAbortModal'].forEach(id=>closeModal(id));}
 function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toastContainer').appendChild(t);setTimeout(()=>t.remove(),3200);}
 function spawnDust(){const c=document.getElementById('dustContainer');for(let i=0;i<4;i++){const d=document.createElement('div');d.className='dust';d.style.left=(40+Math.random()*20)+'%';d.style.bottom='36%';d.style.setProperty('--dx',(Math.random()*20-10)+'px');d.style.animationDelay=(Math.random()*0.3)+'s';c.appendChild(d);setTimeout(()=>d.remove(),2200);}}
 
 /* ── AMBIENT LOOPS ── */
 function startAmbientLoop(){
   ambientTimers.push(setInterval(()=>{
-    document.getElementById('tempVal').textContent=(-60+Math.random()*-8).toFixed(1)+'°C';
+    // Temperature now driven by constraint engine updateThermal()
+    // but wind/rad still randomise for ambiance
     document.getElementById('windVal').textContent=(2+Math.random()*6).toFixed(1)+' m/s '+['N','NNW','NW','NE','E'][Math.floor(Math.random()*5)];
     document.getElementById('radVal').textContent=(0.15+Math.random()*0.08).toFixed(2)+' mGy/d';
   },5000));
   ambientTimers.push(setInterval(()=>{
     if(S.roverState==='MOVING'){modEnergy(-0.3);updateUI();}
-    document.getElementById('solVal').textContent=`SOL 127 // ${(S.latencyMs/1000).toFixed(1)}s RTT`;
   },1000));
 }
+
 function startSolarCycle(){
+  // Solar glow is now managed by updateConstraintUI() based on isNight() / stormActive
+  // This timer is kept as a no-op placeholder for compatibility
   ambientTimers.push(setInterval(()=>{
-    if(S.roverState==='IDLE'&&!S.stormActive&&S.energy<100){modEnergy(+0.2);updateUI();document.getElementById('solarGlow').classList.add('active');setTimeout(()=>{if(S.roverState!=='IDLE')document.getElementById('solarGlow').classList.remove('active');},800);}
-    else if(S.roverState!=='IDLE')document.getElementById('solarGlow').classList.remove('active');
+    updateConstraintUI();
   },3000));
 }
+
 function startNodeProximityTimer(){
   ambientTimers.push(setInterval(()=>{
     if(S.roverState==='IDLE'&&S.stepCount>0&&S.nodeProximity<0.4&&Math.random()<0.05){S.nodeProximity+=0.1;updateNodeRing();}
@@ -899,7 +1193,19 @@ function buildResearchPacket(){
       email:(document.getElementById('op-email')?.value||'').trim()||null,
       notes:(document.getElementById('op-notes')?.value||'').trim()||null
     },
-    finalState:{energy:Math.max(0,Math.floor(S.energy)),validation:S.validation,latencyMs:Math.floor(S.latencyMs),stepCount:S.stepCount,terrain:currentTerrain?.name||null},
+    finalState:{
+      energy:Math.max(0,Math.floor(S.energy)),
+      validation:S.validation,
+      latencyMs:Math.floor(S.latencyMs),
+      stepCount:S.stepCount,
+      terrain:currentTerrain?.name||null,
+      /* constraint engine fields */
+      solNumber:S.solNumber,
+      timeFrac:Math.round(S.timeFrac*1000)/1000,
+      dustIndex:Math.round(S.dust*1000)/1000,
+      riskBudgetUsed:Math.round(S.risk),
+      instrumentReliability:Math.round(S.instrumentReliability*100)/100
+    },
     metrics:{...S.metrics,decisionAccuracy:acc},
     eventLog:S.log
   };
@@ -918,13 +1224,23 @@ function openResearchModal(){
   const risk=S.metrics.slips+S.metrics.storms;
   const riskEl=document.getElementById('rg-risk');
   riskEl.textContent=risk;riskEl.className='r-v '+(risk<=2?'good':risk<=5?'warn':'bad');
-  document.getElementById('rg-risk-mini').textContent=`${S.metrics.slips} slips · ${S.metrics.storms} storms`;
+  document.getElementById('rg-risk-mini').textContent=`${S.metrics.slips} slips · ${S.metrics.storms} storms · risk budget ${Math.round(S.risk)}/100`;
   const latEl=document.getElementById('rg-lat');
   latEl.textContent='+'+S.metrics.latencyPenalty+'ms';
   latEl.className='r-v '+(S.metrics.latencyPenalty<=800?'good':S.metrics.latencyPenalty<=2000?'warn':'bad');
   document.getElementById('rg-lat-mini').textContent=`current RTT ${(S.latencyMs/1000).toFixed(1)}s`;
   const pkt=buildResearchPacket();
-  document.getElementById('packet-preview').textContent=JSON.stringify({runId:pkt.runId,validation:pkt.finalState.validation,energy:pkt.finalState.energy,accuracy:pkt.metrics.decisionAccuracy,riskIndex:risk,latencyPenalty:pkt.metrics.latencyPenalty},null,2);
+  document.getElementById('packet-preview').textContent=JSON.stringify({
+    runId:pkt.runId,
+    validation:pkt.finalState.validation,
+    energy:pkt.finalState.energy,
+    accuracy:pkt.metrics.decisionAccuracy,
+    riskBudgetUsed:pkt.finalState.riskBudgetUsed,
+    dustIndex:pkt.finalState.dustIndex,
+    solNumber:pkt.finalState.solNumber,
+    instrumentReliability:pkt.finalState.instrumentReliability,
+    latencyPenalty:pkt.metrics.latencyPenalty
+  },null,2);
   setSubmitStatus('STATUS: READY · NOT SENT','');
   closeAllModals();closeModal('efailModal');
   document.getElementById('research-modal').classList.add('open');
@@ -943,7 +1259,7 @@ async function sendToDev(){
   }
   try{
     const subject=encodeURIComponent(`HEX-01 Review Packet · ${pkt.runId}`);
-    const bodyTxt='HEX-01 DEV REVIEW REQUEST\n\n'+JSON.stringify({runId:pkt.runId,summary:{validation:pkt.finalState.validation,energy:pkt.finalState.energy,decisionAccuracy:pkt.metrics.decisionAccuracy,riskIndex:S.metrics.slips+S.metrics.storms}},null,2)+'\n\n(Use COPY PACKET for full JSON.)';
+    const bodyTxt='HEX-01 DEV REVIEW REQUEST\n\n'+JSON.stringify({runId:pkt.runId,summary:{validation:pkt.finalState.validation,energy:pkt.finalState.energy,decisionAccuracy:pkt.metrics.decisionAccuracy,riskBudgetUsed:pkt.finalState.riskBudgetUsed,dustIndex:pkt.finalState.dustIndex}},null,2)+'\n\n(Use COPY PACKET for full JSON.)';
     window.location.href=`mailto:${DEV_FALLBACK_EMAIL}?subject=${subject}&body=${encodeURIComponent(bodyTxt)}`;
     setSubmitStatus('STATUS: EMAIL DRAFT OPENED · SEND MANUALLY','ok');logEvent('DEV_SUBMIT',{via:'mailto',ok:true});
   }catch(e){setSubmitStatus('STATUS: FAILED · USE COPY PACKET','bad');}
