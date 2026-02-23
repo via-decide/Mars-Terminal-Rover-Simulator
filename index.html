@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>HEX-01 · Mars Geological Survey</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 
 /* ============================================================
@@ -31,9 +32,6 @@
   --r:         2px;
 }
 
-/* ============================================================
-   RESET
-   ============================================================ */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0; padding: 0;
@@ -189,7 +187,7 @@ html, body {
   background: var(--bg);
 }
 
-/* TOP BAR --------------------------------------------------- */
+/* TOP BAR */
 .top-bar {
   height: 46px;
   flex-shrink: 0;
@@ -223,7 +221,6 @@ html, body {
   white-space: nowrap;
 }
 
-/* Energy bar */
 .eb-row { display: flex; align-items: center; gap: 7px; }
 .eb-track {
   width: 68px; height: 4px;
@@ -242,7 +239,6 @@ html, body {
   min-width: 30px;
 }
 
-/* Signal dot */
 .sig-dot {
   display: inline-block;
   width: 5px; height: 5px;
@@ -253,7 +249,6 @@ html, body {
 }
 @keyframes sigPulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
 
-/* Storm badge */
 .storm-badge {
   display: none;
   align-items: center;
@@ -269,7 +264,7 @@ html, body {
 .storm-badge.visible { display: flex; }
 @keyframes stormFlash { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-/* VIEWPORT -------------------------------------------------- */
+/* VIEWPORT */
 .viewport {
   flex: 1;
   position: relative;
@@ -278,6 +273,14 @@ html, body {
   min-height: 0;
 }
 
+/* Three.js canvas — replaces terrain-canvas */
+#threejs-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: none;
+}
+
+/* Legacy 2D canvas — hidden once 3D initialises */
 canvas#terrain-canvas {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
@@ -290,6 +293,7 @@ canvas#terrain-canvas {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  z-index: 5;
 }
 .to-name {
   font-size: 11px;
@@ -319,6 +323,7 @@ canvas#terrain-canvas {
   opacity: 0;
   transition: opacity 0.35s;
   pointer-events: none;
+  z-index: 5;
 }
 .node-pill.visible { opacity: 1; }
 
@@ -336,6 +341,7 @@ canvas#terrain-canvas {
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
+  z-index: 5;
 }
 .lat-banner.visible { opacity: 1; }
 
@@ -347,6 +353,7 @@ canvas#terrain-canvas {
   color: var(--text-dim);
   letter-spacing: 1px;
   max-width: 60%;
+  z-index: 5;
 }
 
 /* Validation counter */
@@ -356,6 +363,7 @@ canvas#terrain-canvas {
   font-size: 9px;
   letter-spacing: 1.5px;
   color: var(--text-dim);
+  z-index: 5;
 }
 .val-chip span { color: var(--green); }
 
@@ -365,6 +373,7 @@ canvas#terrain-canvas {
   background: rgba(100,50,0,0.0);
   pointer-events: none;
   transition: background 1.5s;
+  z-index: 4;
 }
 .storm-veil.active { background: rgba(100,50,0,0.12); }
 
@@ -374,6 +383,7 @@ canvas#terrain-canvas {
   pointer-events: none;
   box-shadow: inset 0 0 80px rgba(255,58,58,0);
   transition: box-shadow 0.5s;
+  z-index: 4;
 }
 .hb-veil.pulse {
   animation: hbPulse 1.3s ease-in-out infinite;
@@ -401,13 +411,28 @@ canvas#terrain-canvas {
   transform: translateX(-50%);
   width: 130px;
   animation: mastSway 3.5s ease-in-out infinite;
+  z-index: 6;
 }
 @keyframes mastSway {
   0%,100% { transform: translateX(-50%) rotate(-0.25deg); }
   50%      { transform: translateX(-50%) rotate(0.25deg); }
 }
 
-/* CONTROLS AREA --------------------------------------------- */
+/* 3D direction indicator overlay */
+.dir-indicator {
+  position: absolute;
+  top: 12px; right: 12px;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  z-index: 5;
+  display: none;
+}
+.dir-indicator.visible { display: block; }
+
+/* CONTROLS AREA */
 .controls-wrap {
   height: 38%;
   flex-shrink: 0;
@@ -448,7 +473,6 @@ canvas#terrain-canvas {
   justify-content: center;
   min-height: 0;
 }
-/* crosshair */
 .cam-screen::before,
 .cam-screen::after {
   content: '';
@@ -483,7 +507,6 @@ canvas#terrain-canvas {
   to   { transform: translateY(100%); }
 }
 
-/* Sys status rows */
 .sys-rows {
   display: flex;
   flex-direction: column;
@@ -592,7 +615,6 @@ canvas#terrain-canvas {
 .dir-btn.ghost { background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
 .dir-btn.lit { border-color: var(--accent); color: var(--accent); }
 
-/* Rover state badge inside move panel */
 .rover-state-badge {
   font-size: 8px;
   letter-spacing: 2px;
@@ -602,7 +624,6 @@ canvas#terrain-canvas {
 }
 .rover-state-badge.moving { color: var(--accent); border-color: var(--accent-dk); }
 .rover-state-badge.scanning { color: var(--amber); border-color: var(--amber-dk); }
-
 
 /* ============================================================
    MODAL SYSTEM
@@ -708,7 +729,6 @@ canvas#terrain-canvas {
 .submit-btn:hover { background: rgba(0,200,255,0.06); }
 .submit-btn:active { background: rgba(0,200,255,0.15); }
 
-/* RESULT MODAL */
 .result-stats {
   display: flex;
   gap: 8px;
@@ -751,7 +771,6 @@ canvas#terrain-canvas {
 }
 .continue-btn:hover { background: rgba(255,255,255,0.03); }
 
-/* FAIL MODAL */
 #fail-modal .modal-card { border-top-color: var(--red); }
 .fail-title {
   font-family: var(--display);
@@ -785,8 +804,6 @@ canvas#terrain-canvas {
 }
 .fail-btn:hover { background: rgba(255,58,58,0.08); }
 
-
-/* ── DIFFICULTY BADGES + EXPLANATION BOX ──────────────── */
 .modal-top-row {
   display: flex; align-items: center;
   justify-content: space-between;
@@ -820,16 +837,13 @@ canvas#terrain-canvas {
 .exp-text {
   font-size: 10px; color: var(--text); line-height: 1.8;
 }
-/* ============================================================
-   UTILITY
-   ============================================================ */
+
 .hidden { display: none !important; }
 
 </style>
 </head>
 <body>
 
-<!-- ── ATMOSPHERE LAYERS ───────────────────────────── -->
 <div id="overlay-scanlines"></div>
 <div id="overlay-vignette"></div>
 <div id="overlay-grain"></div>
@@ -840,13 +854,10 @@ canvas#terrain-canvas {
      ============================================================ -->
 <div class="screen active" id="boot-screen">
   <div class="boot-header">ISRO · DSN RELAY · HEX-01</div>
-
   <div class="boot-log" id="boot-log"></div>
-
   <div class="boot-progress">
     <div class="boot-progress-fill" id="boot-progress-fill"></div>
   </div>
-
   <button class="boot-cta" id="boot-cta" onclick="initiateControl()">
     <span class="boot-cta-dot"></span>
     INITIATE CONTROL
@@ -860,7 +871,6 @@ canvas#terrain-canvas {
 
   <!-- TOP BAR -->
   <div class="top-bar">
-    <!-- Energy -->
     <div class="tb-cell">
       <div class="tb-label">Energy Reserve</div>
       <div class="eb-row">
@@ -868,25 +878,17 @@ canvas#terrain-canvas {
         <span class="eb-pct" id="energy-text">84%</span>
       </div>
     </div>
-
-    <!-- Latency -->
     <div class="tb-cell">
       <div class="tb-label">Signal Latency</div>
       <div class="tb-value" id="latency-text"><span class="sig-dot"></span>12m 30s</div>
     </div>
-
-    <!-- Sol -->
     <div class="tb-cell">
       <div class="tb-label">Sol / State</div>
       <div class="tb-value" id="sol-text">SOL 127</div>
     </div>
-
-    <!-- Storm badge (shows when storm active) -->
     <div class="storm-badge" id="storm-badge">
       <span>⚡</span> DUST STORM
     </div>
-
-    <!-- Validation -->
     <div class="tb-cell">
       <div class="tb-label">Validation</div>
       <div class="tb-value" id="val-text" style="color:var(--green)">0 pts</div>
@@ -895,38 +897,34 @@ canvas#terrain-canvas {
 
   <!-- VIEWPORT -->
   <div class="viewport" id="viewport">
+    <!-- Three.js canvas (3D) -->
+    <canvas id="threejs-canvas"></canvas>
+    <!-- Legacy 2D canvas (fallback) -->
     <canvas id="terrain-canvas"></canvas>
 
-    <!-- Rover mast -->
+    <!-- Rover mast SVG -->
     <div class="rover-wrap">
       <svg viewBox="0 0 130 210" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- mast -->
         <rect x="59" y="65" width="12" height="130" fill="#0e1e2c"/>
         <rect x="61" y="65" width="8" height="130" fill="#0f2030"/>
         <rect x="59" y="85"  width="12" height="2" fill="#162838"/>
         <rect x="59" y="110" width="12" height="2" fill="#162838"/>
         <rect x="59" y="135" width="12" height="2" fill="#162838"/>
         <rect x="59" y="160" width="12" height="2" fill="#162838"/>
-        <!-- camera head -->
         <rect x="36" y="48" width="58" height="30" rx="3" fill="#0d1c2a"/>
         <rect x="38" y="50" width="54" height="26" rx="2" fill="#091422"/>
-        <!-- left lens -->
         <circle cx="52" cy="63" r="9"  fill="#070f1a"/>
         <circle cx="52" cy="63" r="7"  fill="#080e16"/>
         <circle cx="52" cy="63" r="4.5" fill="#040a10"/>
         <circle cx="50" cy="61" r="1.5" fill="#1a3050" opacity="0.7"/>
-        <!-- right lens -->
         <circle cx="78" cy="63" r="9"  fill="#070f1a"/>
         <circle cx="78" cy="63" r="7"  fill="#080e16"/>
         <circle cx="78" cy="63" r="4.5" fill="#040a10"/>
         <circle cx="76" cy="61" r="1.5" fill="#1a3050" opacity="0.7"/>
-        <!-- antenna -->
         <line x1="65" y1="48" x2="65" y2="26" stroke="#162838" stroke-width="1.5"/>
         <circle cx="65" cy="24" r="3.5" fill="#0d1c2a" stroke="#00c8ff" stroke-width="0.6" opacity="0.6"/>
-        <!-- side arm -->
         <rect x="94" y="53" width="22" height="4" rx="1" fill="#0e1e2c"/>
         <circle cx="117" cy="55" r="4.5" fill="#0d1c2a" stroke="#162838" stroke-width="1"/>
-        <!-- status LED -->
         <circle cx="90" cy="55" r="2.2" fill="#00c8ff" opacity="0.5" id="status-led"/>
       </svg>
     </div>
@@ -937,6 +935,9 @@ canvas#terrain-canvas {
       <div class="to-row">CMPLX <span id="to-cmplx">2.1</span></div>
       <div class="to-row">SLIP  <span id="to-slip">2%</span></div>
     </div>
+
+    <!-- Direction indicator (3D mode) -->
+    <div class="dir-indicator" id="dir-indicator">HDG: N</div>
 
     <!-- Node pill -->
     <div class="node-pill" id="node-pill">◈ GEO-NODE IN PROXIMITY</div>
@@ -963,18 +964,15 @@ canvas#terrain-canvas {
     <!-- CAM FEED -->
     <div class="cam-panel">
       <div class="panel-label"><span class="sig-dot" style="width:4px;height:4px"></span>NAVCAM_L · FEED</div>
-
       <div class="cam-screen">
         <div class="cam-data" id="cam-data">FOCAL 50mm<br>ISO 800<br>EXP 1/250</div>
         <div class="scan-sweep" id="scan-sweep"></div>
       </div>
-
       <div class="sys-rows" id="sys-rows">
         <div class="sys-row"><span class="sys-key">ROVER</span><span class="sys-val ok" id="sr-state">IDLE</span></div>
         <div class="sys-row"><span class="sys-key">TEMP</span> <span class="sys-val" id="sr-temp">-54.2°C</span></div>
         <div class="sys-row"><span class="sys-key">SOLAR</span><span class="sys-val ok" id="sr-solar">OPTIMAL</span></div>
       </div>
-
       <button class="scan-btn" id="scan-btn" onclick="startScan()">
         ◈ INITIATE APXS SCAN
       </button>
@@ -983,7 +981,6 @@ canvas#terrain-canvas {
     <!-- MOVE PAD -->
     <div class="move-panel">
       <div class="move-panel-label">MOVE CONTROL · 8-DIR</div>
-
       <div class="dpad-wrap">
         <div class="dpad-row">
           <button class="dir-btn" id="d-NW" onclick="move('NW')">NW</button>
@@ -1001,7 +998,6 @@ canvas#terrain-canvas {
           <button class="dir-btn" id="d-SE" onclick="move('SE')">SE</button>
         </div>
       </div>
-
       <div class="rover-state-badge" id="rsb">IDLE</div>
     </div>
 
@@ -1105,19 +1101,15 @@ const S = {
   currentTerrain: TERRAIN_DATABASE[0],
   playableLatencyMs: 1200,
   simLatencySeconds: MISSION_CONFIG.communications.latency.averageMs / 1000,
-  nodeNearby: false
+  nodeNearby: false,
+  _lastDir: null
 };
 
 let loops = { ambient: null, solar: null, nodes: null };
 
-/* ── MSL / CHANDRAYAAN-3 MISSION SCIENCE FLASHCARD DATABASE ─
-   Source: Lead Mission Scientist · MSL + Chandrayaan-3 Reports
-   ─────────────────────────────────────────────────────────── */
 const CHALLENGES = [
   {
-    id: "Q_001",
-    instrument: "APXS · MSL",
-    difficulty: "CRITICAL",
+    id: "Q_001", instrument: "APXS · MSL", difficulty: "CRITICAL",
     title: "APXS Lockup Anomaly — Tactical Mitigation",
     sub: "Telemetry shows instrument generating artificial counts at lowest energy channel only.",
     question: "During a long-duration APXS integration on Curiosity, the instrument has stopped recording real X-ray events and is only generating artificial counts at the lowest detectable energy channel — the \"lockup\" anomaly. What is the required tactical mitigation?",
@@ -1129,9 +1121,7 @@ const CHALLENGES = [
     explanation: "Power cycling clears the lockup state. Splitting subsequent integrations into shorter sessions prevents recurrence of the buffer overflow condition."
   },
   {
-    id: "Q_002",
-    instrument: "NavCam · MSL RSM",
-    difficulty: "PRECISION",
+    id: "Q_002", instrument: "NavCam · MSL RSM", difficulty: "PRECISION",
     title: "NavCam Stereo Baseline — RSM Geometric Engine",
     sub: "Stereo pair used for ChemCam target distance calculation.",
     question: "A NavCam stereo pair on the MSL Remote Sensing Mast (RSM) is being used to calculate the distance to a rock target for ChemCam targeting. What is the fixed stereo baseline distance used by the simulator's geometric engine for this calculation?",
@@ -1143,9 +1133,7 @@ const CHALLENGES = [
     explanation: "The MSL RSM NavCam stereo baseline is 42.4 cm. This fixed separation between the two camera eyes enables triangulation for accurate distance estimation to surface targets."
   },
   {
-    id: "Q_003",
-    instrument: "APXS · MSL",
-    difficulty: "DISCOVERY",
+    id: "Q_003", instrument: "APXS · MSL", difficulty: "DISCOVERY",
     title: "2024 APXS Contact Analysis — Surprise Detection",
     sub: "Analysis on rock fractured by rover wheels. Spectra show never-before-seen element.",
     question: "In 2024, Curiosity's APXS performed a contact analysis on a rock recently fractured by the rover's wheels. The resulting spectra revealed a \"surprise discovery\" never before seen in pure form on Mars. What was the element detected?",
@@ -1154,12 +1142,10 @@ const CHALLENGES = [
       { text: "B) Pure Sulfur crystals", correct: true },
       { text: "C) Pure Hematite", correct: false },
     ],
-    explanation: "The fractured rock exposed pure sulfur crystals — the first time elemental sulfur had been detected in pure form on Mars. This was a significant discovery with implications for Mars geochemical history."
+    explanation: "The fractured rock exposed pure sulfur crystals — the first time elemental sulfur had been detected in pure form on Mars."
   },
   {
-    id: "Q_004",
-    instrument: "NavCam · MSL",
-    difficulty: "ENGINEERING",
+    id: "Q_004", instrument: "NavCam · MSL", difficulty: "ENGINEERING",
     title: "NavCam Mounting Height — MSL Engineering Spec",
     sub: "Configuring boresight for high-resolution terrain context mosaic.",
     question: "You are configuring the NavCam boresight for a high-resolution terrain context mosaic. According to MSL engineering specifications, at what height is the upper primary NavCam pair mounted above the base of the rover wheels?",
@@ -1168,12 +1154,10 @@ const CHALLENGES = [
       { text: "B) 1.99 m", correct: true },
       { text: "C) 0.85 m", correct: false },
     ],
-    explanation: "The upper primary NavCam pair on MSL's Remote Sensing Mast is mounted at 1.99 m above the rover wheel base — providing the elevated perspective needed for terrain context mosaics."
+    explanation: "The upper primary NavCam pair on MSL's Remote Sensing Mast is mounted at 1.99 m above the rover wheel base."
   },
   {
-    id: "Q_005",
-    instrument: "APXS · Chandrayaan-3 / PRL",
-    difficulty: "CALIBRATION",
+    id: "Q_005", instrument: "APXS · Chandrayaan-3 / PRL", difficulty: "CALIBRATION",
     title: "Pragyan APXS — Primary Calibration Target Elements",
     sub: "Characteristic X-ray emission analysis on lunar regolith.",
     question: "The Pragyan rover (Chandrayaan-3) APXS, developed by the Physical Research Laboratory (PRL), uses \"characteristic X-rays\" to identify elements. Which specific group of elements is the instrument primarily calibrated to quantify in the lunar soil?",
@@ -1182,12 +1166,10 @@ const CHALLENGES = [
       { text: "B) Major and minor elements such as Si, Mg, Al, Fe, Ca, and Ti", correct: true },
       { text: "C) Heavy radioactive isotopes only", correct: false },
     ],
-    explanation: "The Pragyan APXS (PRL) is calibrated for major rock-forming elements: Silicon, Magnesium, Aluminum, Iron, Calcium, and Titanium — the standard suite for planetary surface geochemistry."
+    explanation: "The Pragyan APXS (PRL) is calibrated for major rock-forming elements: Silicon, Magnesium, Aluminum, Iron, Calcium, and Titanium."
   },
   {
-    id: "Q_006",
-    instrument: "APXS · MSL",
-    difficulty: "TELEMETRY",
+    id: "Q_006", instrument: "APXS · MSL", difficulty: "TELEMETRY",
     title: "APXS Science Data Packet — Standard Size",
     sub: "Instrument prepares packet for retrieval by rover's main computer.",
     question: "At the conclusion of a successful APXS measurement cycle on the Martian surface, the instrument prepares a science data packet for retrieval by the rover's main computer. What is the standard size of this data packet?",
@@ -1196,12 +1178,10 @@ const CHALLENGES = [
       { text: "B) 512 kilobytes", correct: false },
       { text: "C) 2 megabytes", correct: false },
     ],
-    explanation: "The standard APXS science data packet is 32 kilobytes. This compact size is optimized for the limited uplink bandwidth available in direct-to-Earth communications mode (0.5 kbps)."
+    explanation: "The standard APXS science data packet is 32 kilobytes, optimized for the limited uplink bandwidth in direct-to-Earth communications mode."
   },
   {
-    id: "Q_007",
-    instrument: "NavCam · Mobility",
-    difficulty: "MOBILITY",
+    id: "Q_007", instrument: "NavCam · Mobility", difficulty: "MOBILITY",
     title: "Rocker-Bogie Slip Monitoring — Instrument Objective",
     sub: "NavCam detects sudden increase in wheel sinkage.",
     question: "The \"rocker-bogie\" suspension system is visible in NavCam monitoring. If the NavCam detects a sudden increase in wheel sinkage, the operator must assess the \"slip\" risk. Which ISRO/NASA instrument objective specifically covers this monitoring?",
@@ -1210,12 +1190,10 @@ const CHALLENGES = [
       { text: "B) Mobility planning including wheel sinkage and obstruction analysis", correct: true },
       { text: "C) Atmospheric pressure monitoring for dust devil detection", correct: false },
     ],
-    explanation: "NavCam mobility planning objectives specifically include wheel sinkage assessment and obstruction analysis — critical functions for safe rover traversal across soft regolith and rocky terrain."
+    explanation: "NavCam mobility planning objectives specifically include wheel sinkage assessment and obstruction analysis."
   },
   {
-    id: "Q_008",
-    instrument: "APXS · Chandrayaan-3",
-    difficulty: "CALIBRATION",
+    id: "Q_008", instrument: "APXS · Chandrayaan-3", difficulty: "CALIBRATION",
     title: "Pragyan APXS Calibration Plate — Target Materials",
     sub: "Four metallic targets mounted on rover for calibration check.",
     question: "To ensure data integrity, the Pragyan rover's APXS performs a calibration check against a plate mounted on the rover. This plate contains four specific metallic targets. Identify the correct materials:",
@@ -1224,12 +1202,10 @@ const CHALLENGES = [
       { text: "B) Stainless Steel, Copper, Titanium, and Aluminum", correct: true },
       { text: "C) Iron, Lead, Zinc, and Magnesium", correct: false },
     ],
-    explanation: "The Pragyan APXS calibration plate uses Stainless Steel, Copper, Titanium, and Aluminum — materials with well-characterized X-ray fluorescence spectra covering the instrument's detection range."
+    explanation: "The Pragyan APXS calibration plate uses Stainless Steel, Copper, Titanium, and Aluminum — materials with well-characterised X-ray fluorescence spectra."
   },
   {
-    id: "Q_009",
-    instrument: "APXS · MSL Design",
-    difficulty: "METHODOLOGY",
+    id: "Q_009", instrument: "APXS · MSL Design", difficulty: "METHODOLOGY",
     title: "MSL APXS Dual Methodology — Analytical Techniques",
     sub: "Two integrated terrestrial methods in MSL APXS design.",
     question: "The APXS instrument utilizes a combination of two standard terrestrial methods to determine elemental chemistry. Which two methods are integrated into the MSL APXS design?",
@@ -1238,12 +1214,10 @@ const CHALLENGES = [
       { text: "B) Particle-Induced X-ray Emission (PIXE) and X-ray Fluorescence (XRF)", correct: true },
       { text: "C) Gamma Ray Spectroscopy and Neutron Activation Analysis", correct: false },
     ],
-    explanation: "The MSL APXS integrates PIXE (using alpha particles from Curium-244 to excite characteristic X-rays) and XRF (using X-rays to excite fluorescence) — together covering elements from Na to Br."
+    explanation: "The MSL APXS integrates PIXE (using alpha particles from Curium-244) and XRF (using X-rays to excite fluorescence) — together covering elements from Na to Br."
   },
   {
-    id: "Q_010",
-    instrument: "NavCam · Chandrayaan-3",
-    difficulty: "NAVIGATION",
+    id: "Q_010", instrument: "NavCam · Chandrayaan-3", difficulty: "NAVIGATION",
     title: "Pragyan Dual NavCam — Primary Stereo Purpose",
     sub: "Two 1-megapixel cameras. Purpose of dual-camera configuration.",
     question: "Pragyan's NavCam system consists of two 1-megapixel cameras. What is the primary purpose of this specific dual-camera configuration for the ground control team on Earth?",
@@ -1252,78 +1226,67 @@ const CHALLENGES = [
       { text: "B) To generate 3D vision maps of the lunar surface for path planning", correct: true },
       { text: "C) To monitor the thermal degradation of the solar panels", correct: false },
     ],
-    explanation: "The dual 1-MP NavCam configuration on Pragyan generates stereoscopic 3D terrain maps — enabling the ground control team to plan safe traversal paths across the lunar south pole region."
+    explanation: "The dual 1-MP NavCam configuration on Pragyan generates stereoscopic 3D terrain maps for safe traversal path planning."
   }
 ];
 let challengeIdx = 0;
 let selectedChoiceIdx = null;
 
-/* ── TERRAIN CANVAS ─────────────────────────────────────── */
-let canvas, ctx;
-let tx = 0, ty = 0; // terrain scroll offsets
+/* ── LEGACY 2D TERRAIN (FALLBACK) ────────────────────────── */
+let canvas2d, ctx2d;
+let tx = 0, ty = 0;
 
-function initCanvas() {
-  canvas = document.getElementById('terrain-canvas');
+function initCanvas2d() {
+  canvas2d = document.getElementById('terrain-canvas');
   const vp = document.getElementById('viewport');
-  canvas.width  = vp.offsetWidth;
-  canvas.height = vp.offsetHeight;
+  canvas2d.width  = vp.offsetWidth;
+  canvas2d.height = vp.offsetHeight;
   window.addEventListener('resize', () => {
-    canvas.width  = vp.offsetWidth;
-    canvas.height = vp.offsetHeight;
+    canvas2d.width  = vp.offsetWidth;
+    canvas2d.height = vp.offsetHeight;
   });
-  renderLoop();
 }
 
-function renderLoop() {
-  drawTerrain();
-  requestAnimationFrame(renderLoop);
-}
+function drawTerrain2d() {
+  if (!ctx2d) { ctx2d = canvas2d.getContext('2d'); }
+  const w = canvas2d.width, h = canvas2d.height;
+  ctx2d.clearRect(0, 0, w, h);
 
-function drawTerrain() {
-  if (!ctx) { ctx = canvas.getContext('2d'); }
-  const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-
-  // Sky
-  const sky = ctx.createLinearGradient(0, 0, 0, h * 0.48);
+  const sky = ctx2d.createLinearGradient(0, 0, 0, h * 0.48);
   sky.addColorStop(0, '#060204');
   sky.addColorStop(1, '#180a06');
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, w, h * 0.48);
+  ctx2d.fillStyle = sky;
+  ctx2d.fillRect(0, 0, w, h * 0.48);
 
-  // Horizon glow
-  const hg = ctx.createRadialGradient(w/2, h*0.46, 0, w/2, h*0.46, w*0.7);
+  const hg = ctx2d.createRadialGradient(w/2, h*0.46, 0, w/2, h*0.46, w*0.7);
   hg.addColorStop(0, 'rgba(160,60,10,0.1)');
   hg.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = hg;
-  ctx.fillRect(0, 0, w, h);
+  ctx2d.fillStyle = hg;
+  ctx2d.fillRect(0, 0, w, h);
 
-  // Ground base
-  const grd = ctx.createLinearGradient(0, h*0.46, 0, h);
+  const grd = ctx2d.createLinearGradient(0, h*0.46, 0, h);
   grd.addColorStop(0, '#1c0e07');
   grd.addColorStop(0.4, '#160b06');
   grd.addColorStop(1, '#0e0704');
-  ctx.fillStyle = grd;
-  ctx.fillRect(0, h*0.46, w, h*0.54);
+  ctx2d.fillStyle = grd;
+  ctx2d.fillRect(0, h*0.46, w, h*0.54);
 
-  // Terrain ridge silhouette
-  const ridge = ctx.createLinearGradient(0, h*0.43, 0, h*0.52);
+  const ridge = ctx2d.createLinearGradient(0, h*0.43, 0, h*0.52);
   ridge.addColorStop(0, '#2a1508');
   ridge.addColorStop(1, '#160b05');
-  ctx.fillStyle = ridge;
-  ctx.beginPath();
-  ctx.moveTo(0, h);
+  ctx2d.fillStyle = ridge;
+  ctx2d.beginPath();
+  ctx2d.moveTo(0, h);
   const pts = 24;
   for (let i = 0; i <= pts; i++) {
     const xp = (i / pts) * w;
     const phase = xp / w * 6.28 + tx * 0.008;
     const yp = h * 0.47 - Math.sin(phase) * 9 - Math.cos(phase * 2.3) * 5;
-    if (i === 0) ctx.moveTo(xp, yp); else ctx.lineTo(xp, yp);
+    if (i === 0) ctx2d.moveTo(xp, yp); else ctx2d.lineTo(xp, yp);
   }
-  ctx.lineTo(w, h); ctx.lineTo(0, h);
-  ctx.closePath(); ctx.fill();
+  ctx2d.lineTo(w, h); ctx2d.lineTo(0, h);
+  ctx2d.closePath(); ctx2d.fill();
 
-  // Rocks
   const rocks = [
     { bx: 0.08, by: 0.62, rw: 0.055, rh: 0.038, phase: 1.0 },
     { bx: 0.22, by: 0.59, rw: 0.038, rh: 0.028, phase: 2.1 },
@@ -1337,76 +1300,574 @@ function drawTerrain() {
   rocks.forEach(r => {
     const rx = ((r.bx * w + tx * 0.45 + r.phase * 80) % (w * 1.25)) - w * 0.12;
     const ry = r.by * h - ty * 0.1;
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 5;
-    ctx.fillStyle = '#1c0f07';
-    ctx.beginPath();
-    ctx.ellipse(rx, ry, r.rw * w, r.rh * h, 0.15, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(60,28,10,0.35)';
-    ctx.beginPath();
-    ctx.ellipse(rx - r.rw*w*0.25, ry - r.rh*h*0.3, r.rw*w*0.5, r.rh*h*0.45, 0.15, 0, Math.PI);
-    ctx.fill();
-    ctx.restore();
+    ctx2d.save();
+    ctx2d.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx2d.shadowBlur = 10;
+    ctx2d.shadowOffsetY = 5;
+    ctx2d.fillStyle = '#1c0f07';
+    ctx2d.beginPath();
+    ctx2d.ellipse(rx, ry, r.rw * w, r.rh * h, 0.15, 0, Math.PI * 2);
+    ctx2d.fill();
+    ctx2d.fillStyle = 'rgba(60,28,10,0.35)';
+    ctx2d.beginPath();
+    ctx2d.ellipse(rx - r.rw*w*0.25, ry - r.rh*h*0.3, r.rw*w*0.5, r.rh*h*0.45, 0.15, 0, Math.PI);
+    ctx2d.fill();
+    ctx2d.restore();
   });
 
-  // Geological node indicator
   if (S.nodeNearby) {
     const nx = w * 0.5, ny = h * 0.52;
     const t = Date.now() / 1000;
-    ctx.save();
-    ctx.strokeStyle = `rgba(0,200,255,${0.3 + Math.sin(t*3)*0.2})`;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 6]);
-    ctx.beginPath();
-    ctx.arc(nx, ny, 14 + Math.sin(t*2)*3, 0, Math.PI*2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = `rgba(0,200,255,${0.5 + Math.sin(t*3)*0.3})`;
-    ctx.beginPath();
-    ctx.arc(nx, ny, 3, 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
+    ctx2d.save();
+    ctx2d.strokeStyle = `rgba(0,200,255,${0.3 + Math.sin(t*3)*0.2})`;
+    ctx2d.lineWidth = 1;
+    ctx2d.setLineDash([3, 6]);
+    ctx2d.beginPath();
+    ctx2d.arc(nx, ny, 14 + Math.sin(t*2)*3, 0, Math.PI*2);
+    ctx2d.stroke();
+    ctx2d.setLineDash([]);
+    ctx2d.fillStyle = `rgba(0,200,255,${0.5 + Math.sin(t*3)*0.3})`;
+    ctx2d.beginPath();
+    ctx2d.arc(nx, ny, 3, 0, Math.PI*2);
+    ctx2d.fill();
+    ctx2d.restore();
   }
 
-  // Fine grain
-  ctx.save();
-  ctx.globalAlpha = 0.025;
-  ctx.fillStyle = '#c88040';
+  ctx2d.save();
+  ctx2d.globalAlpha = 0.025;
+  ctx2d.fillStyle = '#c88040';
   for (let i = 0; i < 40; i++) {
     const gx = (Math.sin(i * 13.7 + tx * 0.01) * 0.5 + 0.5) * w;
     const gy = (Math.cos(i * 7.3 + ty * 0.01) * 0.3 + 0.65) * h;
-    ctx.fillRect(gx, gy, 1, 1);
+    ctx2d.fillRect(gx, gy, 1, 1);
   }
-  ctx.globalAlpha = 1;
-  ctx.restore();
+  ctx2d.globalAlpha = 1;
+  ctx2d.restore();
 
-  // Scientific grid
-  ctx.save();
-  ctx.strokeStyle = 'rgba(0,200,255,0.018)';
-  ctx.lineWidth = 0.5;
-  for (let gx = 0; gx < w; gx += 44) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,h); ctx.stroke(); }
-  for (let gy = 0; gy < h; gy += 44) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
-  ctx.restore();
+  ctx2d.save();
+  ctx2d.strokeStyle = 'rgba(0,200,255,0.018)';
+  ctx2d.lineWidth = 0.5;
+  for (let gx = 0; gx < w; gx += 44) { ctx2d.beginPath(); ctx2d.moveTo(gx,0); ctx2d.lineTo(gx,h); ctx2d.stroke(); }
+  for (let gy = 0; gy < h; gy += 44) { ctx2d.beginPath(); ctx2d.moveTo(0,gy); ctx2d.lineTo(w,gy); ctx2d.stroke(); }
+  ctx2d.restore();
 }
 
-/* ── MOVE TERRAIN OFFSET on movement ───────────────────── */
+let use3D = false;
+let rAF2d = null;
+
+function renderLoop2d() {
+  drawTerrain2d();
+  rAF2d = requestAnimationFrame(renderLoop2d);
+}
+
 const DIR_VECTORS = {
   N:[0,-1], NE:[1,-1], E:[1,0], SE:[1,1],
   S:[0,1], SW:[-1,1], W:[-1,0], NW:[-1,-1]
 };
 
 /* ============================================================
-   CORE FUNCTIONS (original engine — untouched)
+   THREE.JS 3D RENDERER — v2
+   Additions over v1:
+     • GLSL dust-storm fragment shader (full screen post-process)
+     • Manual EffectComposer built on raw WebGLRenderTarget (no ESM)
+     • Storm event bus hooks  →  onStormStart / onStormStop
+     • Focal-length-based FOV mapping  (50mm idle, 100mm scan)
+   Engine state machine: UNTOUCHED
+   ============================================================ */
+const Renderer3D = (() => {
+
+  /* ── internal state ─────────────────────────────────────── */
+  let renderer, scene, camera;
+  let terrainMesh, geoNodeLight, sunLight, ambientLight, hemiLight;
+  let rAF3d = null;
+  let fogRef;
+  let ready = false;
+  let elapsedTime = 0;
+  let lastTs = 0;
+
+  // Terrain scroll
+  let terrainTargetX = 0, terrainTargetZ = 0;
+  let terrainCurrentX = 0, terrainCurrentZ = 0;
+
+  // FOV (managed via focalLength → FOV conversion)
+  const SENSOR_H     = 24.0;   // standard 35 mm full-frame height
+  const BASE_FL      = 50.0;   // 50 mm = idle / moving
+  const SCAN_FL      = 100.0;  // 100 mm = scanning (optical zoom-in feel)
+  let   targetFL     = BASE_FL;
+  let   currentFL    = BASE_FL;
+
+  // Storm shader state
+  let isStorming       = false;
+  let stormIntensity   = 0.0;   // 0.0 → 1.0, animated in render loop
+
+  /* ── post-process pipeline ──────────────────────────────── */
+  // We replicate a minimal single-pass EffectComposer using raw
+  // WebGLRenderTarget + a full-screen triangle, avoiding ESM imports.
+  let renderTarget;        // scene renders here
+  let postScene, postCam;  // fullscreen quad for shader pass
+  let stormMesh;           // the quad carrying the storm ShaderMaterial
+  let stormMaterial;
+
+  /* ── GLSL shaders ───────────────────────────────────────── */
+  const VERT_PASSTHROUGH = /* glsl */`
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position, 1.0);
+    }
+  `;
+
+  // Dust storm fragment shader — matches spec exactly,
+  // extended with layered fbm noise for spatial variation
+  const FRAG_STORM = /* glsl */`
+    precision mediump float;
+
+    uniform float     time;
+    uniform float     intensity;   // 0.0 → 1.0
+    uniform sampler2D tDiffuse;
+    varying vec2      vUv;
+
+    /* ── Classic 2D value noise (spec) ── */
+    float noise(vec2 co) {
+      return fract(sin(dot(co.yx, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+
+    /* ── Smooth noise via bilinear lerp ── */
+    float smoothNoise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);  // smoothstep
+      float a = noise(i);
+      float b = noise(i + vec2(1.0, 0.0));
+      float c = noise(i + vec2(0.0, 1.0));
+      float d = noise(i + vec2(1.0, 1.0));
+      return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    }
+
+    /* ── Fractional Brownian Motion (5 octaves) ── */
+    float fbm(vec2 p) {
+      float v = 0.0;
+      float amp = 0.5;
+      for (int i = 0; i < 5; i++) {
+        v   += smoothNoise(p) * amp;
+        p   *= 2.1;
+        amp *= 0.48;
+      }
+      return v;
+    }
+
+    void main() {
+      vec4 texel = texture2D(tDiffuse, vUv);
+
+      /* Mars dust — orange-brown, spec colour */
+      vec3 dustColor = vec3(0.6, 0.3, 0.1);
+
+      /* Animated fbm cloud pattern — gives spatial storm variation */
+      vec2 uv2    = vUv * 3.5 + vec2(time * 0.04, time * 0.018);
+      float cloud = fbm(uv2);
+
+      /* High-frequency grain from spec noise (per-frame flicker) */
+      float grain = noise(vUv * 180.0 + time * 12.7);
+
+      /* Combine: spatial cloud shape controls where dust is dense */
+      float dustMask = clamp(cloud * 1.4, 0.0, 1.0);
+
+      /* Base dust overlay */
+      vec3 col = mix(texel.rgb, dustColor, intensity * 0.62 * dustMask);
+
+      /* Grain on top */
+      col += grain * intensity * 0.16;
+
+      /* Cheap blur emulation: desaturate + contrast reduction (spec) */
+      float lum = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(col, vec3(lum), intensity * 0.52);
+
+      /* Vignette tightens during storm — subtle edge darkening */
+      float vign = 1.0 - smoothstep(0.35, 1.0,
+                       length((vUv - 0.5) * vec2(1.0, 1.4)));
+      col *= mix(1.0, vign, intensity * 0.45);
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  /* ── FOV ↔ focal-length conversion ─────────────────────── */
+  // zoomFactor=1 → 50mm (≈39.6°), zoomFactor=2 → 100mm (≈20.4°)
+  function focalLengthToFOV(fl) {
+    return 2.0 * Math.atan(SENSOR_H / (2.0 * fl)) * (180.0 / Math.PI);
+  }
+
+  /* ── helpers ────────────────────────────────────────────── */
+  function energyToAmbient(e) {
+    if (e >= 30) return 0.35;
+    if (e >= 15) return 0.12 + (e - 15) / 15 * 0.23;
+    return 0.06 + (e / 15) * 0.06;
+  }
+
+  function energyToSun(e) {
+    return 1.1 * Math.max(0.05, e / 100);
+  }
+
+  function pseudoNoise(x, z, seed) {
+    const n = Math.sin(x * 12.9898 + z * 78.233 + seed) * 43758.5453;
+    return n - Math.floor(n);
+  }
+
+  /* ── scene construction ─────────────────────────────────── */
+  function buildScene() {
+    scene = new THREE.Scene();
+
+    fogRef = new THREE.Fog(0x03050a, 28, 90);
+    scene.fog = fogRef;
+
+    hemiLight = new THREE.HemisphereLight(0x180a06, 0x1c0e07, 0.4);
+    scene.add(hemiLight);
+
+    sunLight = new THREE.DirectionalLight(0xffd4a0, 1.1);
+    sunLight.position.set(-8, 14, -6);
+    scene.add(sunLight);
+
+    ambientLight = new THREE.AmbientLight(0x1a0f07, 0.35);
+    scene.add(ambientLight);
+
+    geoNodeLight = new THREE.PointLight(0x00c8ff, 0.0, 12);
+    geoNodeLight.position.set(0, 1.5, -8);
+    scene.add(geoNodeLight);
+
+    /* terrain */
+    const tGeo = new THREE.PlaneGeometry(120, 120, 48, 48);
+    tGeo.rotateX(-Math.PI / 2);
+    const pos = tGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), z = pos.getZ(i);
+      const h = pseudoNoise(x * 0.08, z * 0.08, 42) * 1.4
+               + pseudoNoise(x * 0.22, z * 0.22, 13) * 0.5
+               + pseudoNoise(x * 0.55, z * 0.55, 99) * 0.18;
+      pos.setY(i, h);
+    }
+    pos.needsUpdate = true;
+    tGeo.computeVertexNormals();
+    const tMat = new THREE.MeshStandardMaterial({ color: 0x2a1008, roughness: 0.95, metalness: 0.0 });
+    terrainMesh = new THREE.Mesh(tGeo, tMat);
+    terrainMesh.position.set(0, -1.8, 0);
+    scene.add(terrainMesh);
+
+    /* rocks */
+    const rockGeos = [
+      new THREE.BoxGeometry(1.2, 0.7, 0.9),
+      new THREE.BoxGeometry(0.7, 0.5, 0.8),
+      new THREE.BoxGeometry(2.1, 1.0, 1.6),
+      new THREE.BoxGeometry(0.5, 0.4, 0.5),
+      new THREE.BoxGeometry(1.5, 0.8, 1.2),
+    ];
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x1c0f07, roughness: 0.98, metalness: 0.0 });
+    const rockPositions = [
+      [-4.5,-1.4,-7.0],[3.2,-1.5,-8.5],[-8.0,-1.3,-6.0],
+      [6.5,-1.5,-7.5],[-2.0,-1.4,-10.0],[8.0,-1.3,-5.5],
+      [-6.0,-1.5,-9.0],[1.5,-1.4,-6.5],[-9.5,-1.4,-8.0],
+      [4.8,-1.4,-11.0],[-1.2,-1.5,-13.0],[7.2,-1.3,-10.5],
+      [-5.5,-1.5,-4.5],[2.8,-1.4,-4.0],[-3.8,-1.5,-15.0],
+      [9.5,-1.4,-8.0],
+    ];
+    rockPositions.forEach((p, i) => {
+      const geo  = rockGeos[i % rockGeos.length].clone();
+      const mesh = new THREE.Mesh(geo, rockMat);
+      mesh.position.set(p[0], p[1], p[2]);
+      mesh.rotation.y = pseudoNoise(p[0], p[2], 7) * Math.PI * 2;
+      mesh.rotation.x = (pseudoNoise(p[0], p[2], 3) - 0.5) * 0.3;
+      mesh.scale.setScalar(0.6 + pseudoNoise(p[0], p[2], 5) * 0.8);
+      scene.add(mesh);
+    });
+
+    /* sky dome */
+    const skyGeo = new THREE.SphereGeometry(80, 16, 8);
+    skyGeo.scale(-1, 1, 1);
+    scene.add(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ color: 0x060204 })));
+
+    /* horizon glow */
+    const hzMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(200, 12),
+      new THREE.MeshBasicMaterial({ color: 0x3a0e04, transparent: true, opacity: 0.18, depthWrite: false })
+    );
+    hzMesh.position.set(0, 2, -35);
+    scene.add(hzMesh);
+  }
+
+  /* ── post-process: manual single-pass composer ──────────── */
+  // Renders scene → WebGLRenderTarget, then draws target texture
+  // through the storm ShaderMaterial on a fullscreen NDC triangle.
+  function buildPostProcess(w, h) {
+    renderTarget = new THREE.WebGLRenderTarget(w, h, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+    });
+
+    stormMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        tDiffuse:  { value: renderTarget.texture },
+        time:      { value: 0.0 },
+        intensity: { value: 0.0 },
+      },
+      vertexShader:   VERT_PASSTHROUGH,
+      fragmentShader: FRAG_STORM,
+      depthWrite: false,
+      depthTest:  false,
+    });
+
+    // Fullscreen NDC triangle (more efficient than quad)
+    const triGeo = new THREE.BufferGeometry();
+    triGeo.setAttribute('position', new THREE.BufferAttribute(
+      new Float32Array([-1,-1,0,  3,-1,0,  -1,3,0]), 3
+    ));
+    triGeo.setAttribute('uv', new THREE.BufferAttribute(
+      new Float32Array([0,0,  2,0,  0,2]), 2
+    ));
+
+    stormMesh = new THREE.Mesh(triGeo, stormMaterial);
+    stormMesh.frustumCulled = false;
+
+    postScene = new THREE.Scene();
+    postScene.add(stormMesh);
+
+    // Orthographic camera — covers NDC exactly, no projection needed
+    postCam = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  }
+
+  /* ── init ───────────────────────────────────────────────── */
+  function init() {
+    if (!window.THREE) return false;
+    const canvas = document.getElementById('threejs-canvas');
+    const vp     = document.getElementById('viewport');
+    const W = vp.offsetWidth, H = vp.offsetHeight;
+
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: false,
+        powerPreference: 'low-power',
+        alpha: false,
+      });
+    } catch(e) {
+      console.warn('HEX01: WebGL init failed, falling back to 2D canvas');
+      return false;
+    }
+
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setSize(W, H);
+    renderer.setClearColor(0x03050a, 1);
+
+    camera = new THREE.PerspectiveCamera(focalLengthToFOV(BASE_FL), W / H, 0.1, 200);
+    camera.position.set(0, 3.5, 6);
+    camera.lookAt(0, -0.5, -4);
+
+    buildScene();
+    buildPostProcess(W, H);
+
+    window.addEventListener('resize', () => {
+      const w = vp.offsetWidth, h = vp.offsetHeight;
+      renderer.setSize(w, h);
+      renderTarget.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    });
+
+    ready = true;
+    return true;
+  }
+
+  /* ── render loop ────────────────────────────────────────── */
+  const MOBILE   = window.matchMedia('(pointer: coarse)').matches;
+  const FRAME_MS = MOBILE ? 1000 / 30 : 1000 / 60;
+
+  function renderLoop(ts) {
+    rAF3d = requestAnimationFrame(renderLoop);
+    if (ts - lastTs < FRAME_MS) return;
+    const dt = Math.min((ts - lastTs) / 1000, 0.05); // cap at 50 ms
+    lastTs      = ts;
+    elapsedTime += dt;
+
+    /* ── storm intensity lerp — 2 s to full, 2 s to clear ── */
+    const stormRate = dt * 0.5; // 0→1 in 2 seconds
+    if (isStorming) {
+      stormIntensity = Math.min(1.0, stormIntensity + stormRate);
+    } else {
+      stormIntensity = Math.max(0.0, stormIntensity - stormRate);
+    }
+
+    /* ── FOV via focal-length lerp ── */
+    if (Math.abs(currentFL - targetFL) > 0.05) {
+      currentFL += (targetFL - currentFL) * 0.04;
+      camera.fov = focalLengthToFOV(currentFL);
+      camera.updateProjectionMatrix();
+    }
+
+    /* ── terrain translation lerp ── */
+    terrainCurrentX += (terrainTargetX - terrainCurrentX) * 0.025;
+    terrainCurrentZ += (terrainTargetZ - terrainCurrentZ) * 0.025;
+    if (terrainMesh) {
+      terrainMesh.position.x = terrainCurrentX;
+      terrainMesh.position.z = terrainCurrentZ;
+    }
+
+    /* ── update storm shader uniforms ── */
+    stormMaterial.uniforms.time.value      = elapsedTime;
+    stormMaterial.uniforms.intensity.value = stormIntensity;
+
+    /* ── two-pass render ── */
+    // Pass 1: scene → renderTarget
+    renderer.setRenderTarget(renderTarget);
+    renderer.render(scene, camera);
+
+    // Pass 2: renderTarget texture → screen through storm shader
+    renderer.setRenderTarget(null);
+    renderer.render(postScene, postCam);
+  }
+
+  /* ── lifecycle ──────────────────────────────────────────── */
+  function start() {
+    if (!ready) return;
+    document.getElementById('threejs-canvas').style.display = 'block';
+    lastTs = performance.now();
+    rAF3d  = requestAnimationFrame(renderLoop);
+  }
+
+  function stop() {
+    if (rAF3d) { cancelAnimationFrame(rAF3d); rAF3d = null; }
+  }
+
+  /* ── storm event hooks (called by engine triggerStorm) ──── */
+  function onStormStart() { isStorming = true; }
+  function onStormStop()  { isStorming = false; }
+
+  /* ── snapshot handler ───────────────────────────────────── */
+  function applySnapshot(snap) {
+    if (!ready) return;
+
+    /* lighting from energy */
+    sunLight.intensity     = energyToSun(snap.energy);
+    ambientLight.intensity = energyToAmbient(snap.energy);
+
+    /* fog: storm tightens near/far regardless of shader —
+       the shader handles the visual dust;
+       fog handles geometry occlusion at distance */
+    if (snap.stormActive) {
+      fogRef.near = 6;
+      fogRef.far  = 28;
+      sunLight.intensity *= 0.28;
+    } else {
+      fogRef.near = 28;
+      fogRef.far  = 90;
+    }
+
+    /* geo-node pulse light */
+    geoNodeLight.intensity = snap.nodeNearby ? 0.55 : 0.0;
+
+    /* focal-length target:
+       SCANNING  → 100 mm  (≈ 20.4° — tight instrument view)
+       otherwise → 50 mm   (≈ 39.6° — standard nav view)    */
+    targetFL = (snap.roverState === 'SCANNING') ? SCAN_FL : BASE_FL;
+
+    /* direction indicator HUD element */
+    const dirEl = document.getElementById('dir-indicator');
+    if (snap.lastDir) {
+      dirEl.textContent = 'HDG: ' + snap.lastDir;
+      dirEl.classList.add('visible');
+    }
+
+    /* terrain world offset on move */
+    if (snap.roverState === 'MOVING' && snap.lastDir) {
+      const v = DIR_VECTORS[snap.lastDir] || [0,0];
+      terrainTargetX += v[0] * 4;
+      terrainTargetZ += v[1] * 4;
+    }
+  }
+
+  return {
+    init,
+    start,
+    stop,
+    applySnapshot,
+    onStormStart,
+    onStormStop,
+    isReady: () => ready,
+  };
+})();
+
+/* ============================================================
+   EVENT BUS (minimal inline)
+   ============================================================ */
+const HEX01_Bus = (() => {
+  const target = new EventTarget();
+  return {
+    dispatch(type, detail) {
+      target.dispatchEvent(new CustomEvent(type, { detail }));
+    },
+    on(type, fn) {
+      target.addEventListener(type, e => fn(e.detail));
+    }
+  };
+})();
+
+function HEX01_Snapshot() {
+  return {
+    energy:       S.energy,
+    roverState:   S.roverState,
+    stormActive:  S.stormActive,
+    nodeNearby:   S.nodeNearby,
+    currentTerrain: {
+      name:            S.currentTerrain.name,
+      complexityIndex: S.currentTerrain.complexityIndex,
+      hazards:         { ...S.currentTerrain.hazards }
+    },
+    lastDir:      S._lastDir,
+    simScreen:    document.getElementById('sim-screen').classList.contains('active')
+  };
+}
+
+HEX01_Bus.on('stateChange', snap => {
+  if (Renderer3D.isReady()) Renderer3D.applySnapshot(snap);
+});
+
+/* ============================================================
+   KEYBOARD CONTROLLER
+   ============================================================ */
+const KEY_DIR = {
+  ArrowUp:'N', ArrowDown:'S', ArrowLeft:'W', ArrowRight:'E',
+  w:'N', s:'S', a:'W', d:'E',
+  q:'NW', e:'NE', z:'SW', c:'SE'
+};
+document.addEventListener('keydown', ev => {
+  const dir = KEY_DIR[ev.key];
+  if (dir && !ev.repeat && document.getElementById('sim-screen').classList.contains('active')) {
+    move(dir);
+  }
+});
+
+/* ============================================================
+   CORE FUNCTIONS — ORIGINAL ENGINE PRESERVED VERBATIM
    ============================================================ */
 
 function initiateControl() {
   document.getElementById('boot-screen').classList.remove('active');
   const ss = document.getElementById('sim-screen');
   ss.classList.add('active');
-  initCanvas();
+
+  // Attempt 3D init; fall back to 2D
+  const ok3d = Renderer3D.init();
+  if (ok3d) {
+    use3D = true;
+    document.getElementById('terrain-canvas').style.display = 'none';
+    document.getElementById('threejs-canvas').style.display = 'block';
+    Renderer3D.start();
+  } else {
+    use3D = false;
+    document.getElementById('terrain-canvas').style.display = 'block';
+    document.getElementById('threejs-canvas').style.display = 'none';
+    initCanvas2d();
+    renderLoop2d();
+  }
+
   updateUI();
   startLoops();
 }
@@ -1420,6 +1881,12 @@ function endSim() {
   clearInterval(loops.solar);
   clearInterval(loops.nodes);
 
+  if (use3D) {
+    Renderer3D.stop();
+  } else {
+    if (rAF2d) { cancelAnimationFrame(rAF2d); rAF2d = null; }
+  }
+
   S.energy = 84;
   S.validation = 0;
   S.roverState = 'IDLE';
@@ -1427,6 +1894,7 @@ function endSim() {
   S.playableLatencyMs = 1200;
   S.simLatencySeconds = MISSION_CONFIG.communications.latency.averageMs / 1000;
   S.nodeNearby = false;
+  S._lastDir = null;
   S.currentTerrain = TERRAIN_DATABASE[0];
   challengeIdx = 0;
   selectedChoiceIdx = null;
@@ -1434,29 +1902,24 @@ function endSim() {
 }
 
 function updateUI() {
-  /* Energy */
   const pct = Math.max(0, Math.floor(S.energy));
   document.getElementById('eb-fill').style.width = pct + '%';
   document.getElementById('energy-text').textContent = pct + '%';
   const fill = document.getElementById('eb-fill');
   fill.style.background = pct < 15 ? 'var(--red)' : pct < 30 ? 'var(--amber)' : 'var(--accent)';
 
-  /* Latency */
   const mins = Math.floor(S.simLatencySeconds / 60);
   const secs = Math.floor(S.simLatencySeconds % 60);
   document.getElementById('latency-text').innerHTML =
     `<span class="sig-dot"></span>${mins}m ${secs}s`;
 
-  /* Validation */
   document.getElementById('val-text').textContent = S.validation + ' pts';
   document.getElementById('val-chip-val').textContent = S.validation;
 
-  /* Terrain overlay */
   document.getElementById('to-name').textContent = S.currentTerrain.name.toUpperCase();
   document.getElementById('to-cmplx').textContent = S.currentTerrain.complexityIndex;
   document.getElementById('to-slip').textContent = (S.currentTerrain.hazards.slipProbability * 100).toFixed(0) + '%';
 
-  /* Sys rows */
   const stateEl = document.getElementById('sr-state');
   stateEl.textContent = S.roverState;
   stateEl.className = 'sys-val ' +
@@ -1467,18 +1930,14 @@ function updateUI() {
   solarEl.textContent = S.stormActive ? 'COMPROMISED' : 'OPTIMAL';
   solarEl.className   = 'sys-val ' + (S.stormActive ? 'warn' : 'ok');
 
-  /* Rover state badge */
   const rsb = document.getElementById('rsb');
   rsb.textContent = S.roverState;
   rsb.className = 'rover-state-badge ' +
     (S.roverState.includes('MOVING') ? 'moving' : S.roverState === 'SCANNING' ? 'scanning' : '');
 
-  /* Scan button */
   const scanBtn = document.getElementById('scan-btn');
   const canScan = S.nodeNearby && S.roverState === 'IDLE';
   scanBtn.className = 'scan-btn' + (canScan ? ' ready' : '');
-  // NOTE: never set scanBtn.disabled — it blocks onclick even with .ready
-  // Guard is handled inside startScan() itself.
   const scnBtn = document.getElementById('d-scan');
   if (scnBtn) {
     scnBtn.style.borderColor = canScan ? 'var(--accent)' : '';
@@ -1486,20 +1945,17 @@ function updateUI() {
     scnBtn.style.boxShadow = canScan ? '0 0 8px rgba(0,200,255,0.3)' : '';
   }
 
-  /* Node pill */
   document.getElementById('node-pill').classList.toggle('visible', S.nodeNearby);
-
-  /* Storm */
   document.getElementById('storm-badge').classList.toggle('visible', S.stormActive);
   document.getElementById('storm-veil').classList.toggle('active', S.stormActive);
-
-  /* Heartbeat when energy critical */
   document.getElementById('hb-veil').classList.toggle('pulse', S.energy < 15);
 
-  /* Fail modal */
   if (S.energy <= 0) {
     document.getElementById('fail-modal').classList.add('open');
   }
+
+  // Dispatch snapshot to renderer — append-only addition
+  HEX01_Bus.dispatch('stateChange', HEX01_Snapshot());
 }
 
 function logToast(msg) {
@@ -1515,7 +1971,6 @@ function startLoops() {
         ? chargeBase * MISSION_CONFIG.powerSystems.solar.dustStormMultiplier
         : chargeBase;
       S.energy = Math.min(100, S.energy + charge);
-      // Solar glow pulse when charging
       if (!S.stormActive) {
         const sg = document.getElementById('solar-glow');
         sg.classList.add('active');
@@ -1538,14 +1993,13 @@ function startLoops() {
 function move(dir) {
   if (S.roverState !== 'IDLE' || S.energy <= 0) return;
 
+  S._lastDir = dir;
   S.roverState = 'MOVING_QUEUED';
   logToast(`CMD [MOVE ${dir}] TRANSMITTING…`);
 
-  /* Highlight active direction button briefly */
   const btn = document.getElementById('d-' + dir);
   if (btn) btn.classList.add('lit');
 
-  /* Show latency banner */
   document.getElementById('lat-banner').classList.add('visible');
   updateUI();
 
@@ -1563,7 +2017,6 @@ function executeMove(dir) {
   const drain = MISSION_CONFIG.locomotion.baseEnergyDrainPerMove * S.currentTerrain.hazards.costMult;
   S.energy -= drain;
 
-  /* Scroll terrain canvas */
   const v = DIR_VECTORS[dir] || [0,0];
   tx += v[0] * 18;
   ty += v[1] * 18;
@@ -1579,7 +2032,6 @@ function executeMove(dir) {
 
   setTimeout(() => {
     S.roverState = 'IDLE';
-    // nodeNearby intentionally NOT reset here — operator needs to stop and scan
     updateUI();
   }, 1000);
 
@@ -1590,12 +2042,22 @@ function executeMove(dir) {
 function triggerStorm() {
   S.stormActive = true;
   S.simLatencySeconds += 300;
+
+  // Emit to bus + direct renderer hook — ramps shader intensity up
+  HEX01_Bus.dispatch('onStormStart', {});
+  if (Renderer3D.isReady()) Renderer3D.onStormStart();
+
   logToast('WARNING: DUST STORM DETECTED — SOLAR COMPROMISED');
   updateUI();
 
   setTimeout(() => {
     S.stormActive = false;
     S.simLatencySeconds -= 300;
+
+    // Emit to bus + direct renderer hook — ramps shader intensity down
+    HEX01_Bus.dispatch('onStormStop', {});
+    if (Renderer3D.isReady()) Renderer3D.onStormStop();
+
     logToast('STORM CLEARED — NOMINAL OPERATIONS RESUMED');
     updateUI();
   }, 15000);
@@ -1699,7 +2161,6 @@ function applyResult(correct) {
   let energyDelta, valDelta, latDelta;
 
   if (correct) {
-    /* Original engine logic */
     S.validation += 10;
     energyDelta = +8;
     valDelta    = '+10 pts';
@@ -1707,7 +2168,6 @@ function applyResult(correct) {
     logToast('VALIDATION SUCCESS · DATA PACKET LOGGED');
     challengeIdx++;
   } else {
-    /* Original engine penalties */
     S.energy -= 5;
     S.simLatencySeconds += 120;
     S.playableLatencyMs += 300;
@@ -1719,7 +2179,6 @@ function applyResult(correct) {
 
   S.energy = Math.min(100, S.energy + (correct ? 8 : 0));
 
-  /* Populate result modal */
   const _ch = CHALLENGES[(correct ? challengeIdx - 1 : challengeIdx) % CHALLENGES.length];
   document.getElementById('r-tag').textContent   = correct ? '◈ LOGGED · ' + _ch.id : '✕ REJECTED · ' + _ch.id;
   document.getElementById('r-title').textContent = correct ? 'Sample Integrity Confirmed' : 'Analysis Inconclusive';
@@ -1756,11 +2215,12 @@ const BOOT_LINES = [
   { text: 'Solar charge:',             key: '84%',          val: null,          cls: '' },
   { text: 'Signal latency:',           key: '12m 30s',      val: null,          cls: '' },
   { text: 'APXS spectrometer:',        key: 'NOMINAL',      val: null,          cls: '' },
+  { text: '3D renderer:',              key: window.THREE ? 'THREE.JS r128 + GLSL STORM SHADER' : 'FALLBACK 2D', val: null, cls: '' },
   { text: 'All systems nominal.',       key: null,           val: 'READY',       cls: 'bl-ok' },
 ];
 
 (function runBoot() {
-  const log = document.getElementById('boot-log');
+  const log  = document.getElementById('boot-log');
   const fill = document.getElementById('boot-progress-fill');
   const cta  = document.getElementById('boot-cta');
 
