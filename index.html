@@ -1169,16 +1169,16 @@ const CHALLENGES = [
     explanation: "The Pragyan APXS (PRL) is calibrated for major rock-forming elements: Silicon, Magnesium, Aluminum, Iron, Calcium, and Titanium."
   },
   {
-    id: "Q_006", instrument: "APXS · MSL", difficulty: "TELEMETRY",
-    title: "APXS Science Data Packet — Standard Size",
-    sub: "Instrument prepares packet for retrieval by rover's main computer.",
-    question: "At the conclusion of a successful APXS measurement cycle on the Martian surface, the instrument prepares a science data packet for retrieval by the rover's main computer. What is the standard size of this data packet?",
+    id: "Q_006", instrument: "Mobility · MSL", difficulty: "MOBILITY",
+    title: "Rocker-Bogie Suspension — Primary Operational Advantage",
+    sub: "Suspension design comparison: rocker-bogie vs. traditional spring systems.",
+    question: "The rover's mobility system utilizes a 'rocker-bogie' suspension design rather than traditional springs. What is the primary operational advantage of this mechanical configuration when navigating rough Martian terrain?",
     choices: [
-      { text: "A) 32 kilobytes", correct: true },
-      { text: "B) 512 kilobytes", correct: false },
-      { text: "C) 2 megabytes", correct: false },
+      { text: "A) It allows the rover to achieve higher top speeds on flat terrain like basaltic plains.", correct: false },
+      { text: "B) It maintains relatively equal weight distribution on all six wheels while climbing obstacles larger than the wheel diameter.", correct: true },
+      { text: "C) It physically lifts the main rover chassis to step over large boulders.", correct: false },
     ],
-    explanation: "The standard APXS science data packet is 32 kilobytes, optimized for the limited uplink bandwidth in direct-to-Earth communications mode."
+    explanation: "The rocker-bogie linkage is a passive mechanical system with no springs or actuators. When one side encounters an obstacle, the rocker pivots to redistribute load across all six wheels, maintaining traction and preventing tip-over on rocks exceeding wheel diameter. This is why Curiosity can climb 75 cm obstacles despite having no active suspension."
   },
   {
     id: "Q_007", instrument: "NavCam · Mobility", difficulty: "MOBILITY",
@@ -1195,14 +1195,14 @@ const CHALLENGES = [
   {
     id: "Q_008", instrument: "APXS · Chandrayaan-3", difficulty: "CALIBRATION",
     title: "Pragyan APXS Calibration Plate — Target Materials",
-    sub: "Four metallic targets mounted on rover for calibration check.",
-    question: "To ensure data integrity, the Pragyan rover's APXS performs a calibration check against a plate mounted on the rover. This plate contains four specific metallic targets. Identify the correct materials:",
+    sub: "Known metallic calibration standards with well-characterised spectra mounted on rover.",
+    question: "To ensure data integrity, the Pragyan APXS performs a calibration check before analyzing lunar soil. It uses known metallic calibration standards with well-characterised spectra mounted directly on the rover. Identify the correct calibration materials:",
     choices: [
       { text: "A) Gold, Silver, Platinum, and Nickel", correct: false },
       { text: "B) Stainless Steel, Copper, Titanium, and Aluminum", correct: true },
       { text: "C) Iron, Lead, Zinc, and Magnesium", correct: false },
     ],
-    explanation: "The Pragyan APXS calibration plate uses Stainless Steel, Copper, Titanium, and Aluminum — materials with well-characterised X-ray fluorescence spectra."
+    explanation: "The Pragyan APXS calibration plate uses Stainless Steel, Copper, Titanium, and Aluminum — materials with well-characterised X-ray fluorescence spectra. These standards allow the instrument to verify its gain and energy calibration before each lunar soil measurement, ensuring data integrity across the mission."
   },
   {
     id: "Q_009", instrument: "APXS · MSL Design", difficulty: "METHODOLOGY",
@@ -1227,6 +1227,126 @@ const CHALLENGES = [
       { text: "C) To monitor the thermal degradation of the solar panels", correct: false },
     ],
     explanation: "The dual 1-MP NavCam configuration on Pragyan generates stereoscopic 3D terrain maps for safe traversal path planning."
+  },
+  {
+    id: "Q_011", instrument: "Drill · MSL CheMin", difficulty: "ENGINEERING",
+    title: "Feed Extended Drilling — Stalled Feed Motor Recovery",
+    sub: "Drill feed motor stalled. Bit cannot extend past contact stabilizers.",
+    question: "The drill's feed motor has stalled, preventing the bit from extending past the contact stabilizers. To continue pulverizing rock samples for the CheMin instrument, what novel technique must the autonomous engine execute?",
+    choices: [
+      { text: "A) Switch to the Dust Removal Tool to scrape the surface instead.", correct: false },
+      { text: "B) Use \"Feed Extended Drilling\" by pushing the entire robotic arm forward using its internal force sensors to \"feel\" the rock.", correct: true },
+      { text: "C) Fire the ChemCam laser continuously to blast a 2-inch core sample.", correct: false },
+    ],
+    explanation: "\"Feed Extended Drilling\" uses the robotic arm's own shoulder and elbow joints as the feed mechanism, pressing the bit into the rock by advancing the whole arm. Internal force sensors monitor contact load in real time, allowing the bit to pulverise material even when the dedicated feed motor has failed."
+  },
+  {
+    id: "Q_012", instrument: "CheMin · MSL", difficulty: "DISCOVERY",
+    title: "Gypsum vs. Anhydrite — X-ray Diffraction Identification",
+    sub: "Powdered sample could be hydrated gypsum or anhydrous anhydrite.",
+    question: "You need to distinguish whether a powdered sample is gypsum (which contains water) or anhydrite (which lacks water). Which MSL laboratory instrument uses X-ray diffraction to identify these specific mineral structures?",
+    choices: [
+      { text: "A) Alpha Particle X-ray Spectrometer (APXS)", correct: false },
+      { text: "B) Chemistry and Mineralogy (CheMin)", correct: true },
+      { text: "C) Radiation Assessment Detector (RAD)", correct: false },
+    ],
+    explanation: "CheMin uses X-ray diffraction (XRD) to resolve crystalline structures at the atomic lattice level. Because gypsum (CaSO₄·2H₂O) and anhydrite (CaSO₄) have identical elemental chemistry but distinct crystal structures, only XRD — not APXS elemental analysis — can distinguish them."
+  },
+  {
+    id: "Q_013", instrument: "MAHLI · MSL", difficulty: "PRECISION",
+    title: "MAHLI Micro-Imaging — Sub-Hair-Width Resolution",
+    sub: "Geology team requires microscopic grain-scale imaging at 150 microns/pixel.",
+    question: "The geology team needs a microscopic view of rock grains at a scale smaller than a human hair (150 microns/pixel). Which specific imager must be deployed directly against the rock surface to capture this data?",
+    choices: [
+      { text: "A) Mars Hand Lens Imager (MAHLI)", correct: true },
+      { text: "B) Mast Camera (Mastcam)", correct: false },
+      { text: "C) Rover Environmental Monitoring Station (REMS)", correct: false },
+    ],
+    explanation: "MAHLI is mounted on the turret at the end of the robotic arm and is designed to be placed within centimetres of rock surfaces. It can resolve features down to approximately 14 microns/pixel at minimum focus — far exceeding the 150 microns/pixel requirement. Mastcam cannot achieve this resolution from mast height."
+  },
+  {
+    id: "Q_014", instrument: "Mobility · MSL", difficulty: "MOBILITY",
+    title: "Terrain-Adaptive Wheel Speed — Loose Incline Slip Hazard",
+    sub: "SLIP HAZARD: 15-degree incline of loose basaltic sand. Wheel sinkage risk.",
+    question: "SLIP HAZARD: The rover is approaching a 15-degree incline composed of loose basaltic sand. To minimize the risk of the wheels sinking and experiencing excessive slip, which active mobility system should be utilized?",
+    choices: [
+      { text: "A) Terrain-Adaptive wheel speed control, which leverages rocker-bogie suspension angles to adjust individual wheel speeds.", correct: true },
+      { text: "B) The High-Fidelity Traversability Analysis (HFTA) orbital mapping link.", correct: false },
+      { text: "C) The Enhanced Autonomous Navigation (ENav) single-core kinematic settling sequence.", correct: false },
+    ],
+    explanation: "Terrain-adaptive wheel speed control monitors the rocker-bogie suspension articulation rates as a proxy for slip. When slip exceeds threshold on an incline, it reduces torque to the most-embedded wheels and redistributes drive effort — preventing the digging-in failure mode that destroyed several of Spirit's wheels."
+  },
+  {
+    id: "Q_015", instrument: "Locomotion · Legged Rover", difficulty: "MOBILITY",
+    title: "Cost of Transport Optimisation — Crater Wall Locomotion Strategy",
+    sub: "[ RESEARCH-BASED LOCOMOTION STRATEGY FOR FUTURE SYSTEMS ] Quadruped on steep loose crater wall.",
+    question: "[ RESEARCH-BASED LOCOMOTION STRATEGY FOR FUTURE SYSTEMS ] You are testing a quadruped (legged) rover on a steep, loose crater wall. To minimize the energetic Cost of Transport (CoT) and maintain stability, what transition should the locomotion engine trigger based on slip predictions?",
+    choices: [
+      { text: "A) Switch from a walking gait to a torso-based sliding locomotion.", correct: true },
+      { text: "B) Switch to a dynamic jumping gait to clear the loose regolith.", correct: false },
+      { text: "C) Deploy an explosive tethered penetrator to winch up the slope.", correct: false },
+    ],
+    explanation: "On very steep, loose slopes where limb thrust produces more slip than forward progress, torso-based sliding (controlled descent or lateral traversal using body contact and drag) has a lower energetic Cost of Transport than any legged gait. Research on Boston Dynamics-style quadrupeds on Mars analogue terrain confirms this transition minimises both energy expenditure and fall risk."
+  },
+  {
+    id: "Q_016", instrument: "REMS · MSL", difficulty: "DISCOVERY",
+    title: "Dust Storm Thermal Inversion — Nighttime Temperature Paradox",
+    sub: "Global dust storm active. Atmospheric opacity tau = 10.8.",
+    question: "A massive, global dust storm is active, and the atmospheric opacity (tau) has spiked to 10.8. Counterintuitively, what happens to the surface temperature during the Martian night compared to clear conditions?",
+    choices: [
+      { text: "A) It drops to cryogenic extremes due to the lack of daytime sunlight.", correct: false },
+      { text: "B) It stays warmer than usual because the atmospheric dust acts as an insulating blanket, trapping heat.", correct: true },
+      { text: "C) It fluctuates rapidly, causing thermal short-circuits in the NavCams.", correct: false },
+    ],
+    explanation: "Suspended dust particles absorb and re-emit infrared radiation in all directions. At night, this creates a greenhouse-like blanketing effect that reduces the rate of radiative cooling from the surface. REMS data from the 2018 global dust storm confirmed that Gale Crater surface temperatures were measurably warmer at night than during preceding clear-sky sols."
+  },
+  {
+    id: "Q_017", instrument: "RAD · MSL", difficulty: "CRITICAL",
+    title: "Radiation Assessment Detector — Cosmic Ray & Neutron Flux",
+    sub: "Human mission hazard evaluation. Secondary neutrons + GCR data required.",
+    question: "To evaluate the hazard level for future human missions, you must pull data on the secondary neutrons and galactic cosmic radiation hitting the rover's chassis. Which instrument provides this critical data stream?",
+    choices: [
+      { text: "A) Dynamic Albedo of Neutrons (DAN)", correct: false },
+      { text: "B) Radiation Assessment Detector (RAD)", correct: true },
+      { text: "C) Chemistry and Camera complex (ChemCam)", correct: false },
+    ],
+    explanation: "RAD is MSL's dedicated radiation monitor, measuring energetic particle radiation — including galactic cosmic rays (GCRs), solar energetic particles (SEPs), and secondary neutrons and charged particles produced by GCR interactions with the Martian atmosphere and soil. DAN measures thermal and epithermal neutrons specifically to detect subsurface hydrogen/water, not the full cosmic radiation environment."
+  },
+  {
+    id: "Q_018", instrument: "Telecom · MRO UHF Relay", difficulty: "TELEMETRY",
+    title: "UHF Orbiter Relay — Maximising Downlink Data Rate",
+    sub: "X-band direct-to-Earth capping at 32 kbps. 3D photogrammetry dataset pending.",
+    question: "The rover needs to downlink a massive 3D photogrammetry dataset. The Direct-to-Earth X-band rate is capping at 32,000 bits per second. How do you maximize your data rate up to 2 million bits per second?",
+    choices: [
+      { text: "A) Wait for Earth-Mars opposition to physically decrease the radio transit time.", correct: false },
+      { text: "B) Relay the data via UHF to a passing satellite like the Mars Reconnaissance Orbiter (MRO).", correct: true },
+      { text: "C) Switch the High-Gain Antenna transmission format to a compressed S-band signal.", correct: false },
+    ],
+    explanation: "MRO's ELECTRA UHF transceiver supports data rates up to 2 Mbps over short-range UHF links to the rover during an overpass window. The rover uplinks to MRO via UHF, and MRO then relays the data to Earth via its own high-gain X-band antenna at rates far exceeding direct-to-Earth rover capability. Opposition affects light-time delay, not maximum link rate."
+  },
+  {
+    id: "Q_019", instrument: "Fault Protection · MSL", difficulty: "CRITICAL",
+    title: "Solar Conjunction Fault Mode — 14-Day Autonomous Protocol",
+    sub: "Superior solar conjunction. Sun blocking direct Earth line-of-sight.",
+    question: "Mars is entering a superior solar conjunction, meaning the sun is blocking the direct line of sight to Earth. What autonomous fault mode protocol must the rover execute for the next 14 days?",
+    choices: [
+      { text: "A) Suspend all driving and active robotic arm science, running only basic health checks and executing pre-uploaded commands.", correct: true },
+      { text: "B) Broadcast high-power beacon pings blindly into the solar corona until the Deep Space Network (DSN) acknowledges.", correct: false },
+      { text: "C) Reroute all telemetry through the lunar orbital gateway to bypass the sun.", correct: false },
+    ],
+    explanation: "During solar conjunction, the Sun's corona introduces unacceptable noise and signal distortion on all radio frequencies used for Mars communication. JPL's standard protocol suspends all commands requiring real-time feedback (driving, arm science) for the conjunction period — approximately 14 days. Pre-uplinked \"conjunction keep-alive\" sequences run basic health maintenance autonomously."
+  },
+  {
+    id: "Q_020", instrument: "MMRTG · Thermal", difficulty: "ENGINEERING",
+    title: "MMRTG Waste Heat — Warm Electronics Box Thermal Management",
+    sub: "Freezing Martian night. Must maintain computer temperature without battery drain.",
+    question: "Your rover uses a Multi-Mission Radioisotope Thermoelectric Generator (MMRTG). During the freezing Martian night, how does the rover maintain its internal computer temperatures without draining precious battery reserves?",
+    choices: [
+      { text: "A) It diverts excess thermal energy (heat) directly from the MMRTG into the Warm Electronics Box (WEB).", correct: true },
+      { text: "B) It uses the mechanical friction of spinning the suspended wheels to generate internal heat.", correct: false },
+      { text: "C) It ignites small, localized pockets of hydrazine propellant in the chassis.", correct: false },
+    ],
+    explanation: "The MMRTG generates approximately 2,000 watts of thermal energy as a by-product of Plutonium-238 decay, but converts only ~110 watts of that to electricity. The remaining waste heat is deliberately routed through the rover's fluid loop into the Warm Electronics Box (WEB), passively keeping avionics above −40°C at night — at zero battery cost."
   }
 ];
 let challengeIdx = 0;
