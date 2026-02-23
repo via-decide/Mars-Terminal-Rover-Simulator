@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>HEX-01 · Mars Geological Survey</title>
+
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+
+<!-- THREE r128 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- GLTFLoader for r128 (must match) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
 <style>
 /* ============================================================
    DESIGN TOKENS
@@ -371,24 +377,12 @@ canvas#terrain-canvas {
   width: 130px;
   animation: mastSway 3.5s ease-in-out infinite;
   z-index: 6;
+  pointer-events: none;
 }
 @keyframes mastSway {
   0%,100% { transform: translateX(-50%) rotate(-0.25deg); }
   50%      { transform: translateX(-50%) rotate(0.25deg); }
 }
-
-.dir-indicator {
-  position: absolute;
-  top: 12px; right: 12px;
-  font-size: 8px;
-  letter-spacing: 1.5px;
-  color: var(--text-dim);
-  border: 1px solid var(--border);
-  padding: 4px 8px;
-  z-index: 5;
-  display: none;
-}
-.dir-indicator.visible { display: block; }
 
 /* CONTROLS AREA */
 .controls-wrap {
@@ -703,40 +697,6 @@ canvas#terrain-canvas {
 }
 .continue-btn:hover { background: rgba(255,255,255,0.03); }
 
-/* OLD FAIL MODAL (kept but not used in research-grade flow) */
-#fail-modal .modal-card { border-top-color: var(--red); }
-.fail-title {
-  font-family: var(--display);
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--red);
-  letter-spacing: 3px;
-  text-align: center;
-  margin: 10px 0 6px;
-  animation: failFlicker 0.15s step-end infinite;
-}
-@keyframes failFlicker { 0%,100%{opacity:1} 50%{opacity:0.8} }
-.fail-sub {
-  text-align: center;
-  font-size: 9px;
-  color: var(--text-dim);
-  letter-spacing: 1.5px;
-  margin-bottom: 20px;
-}
-.fail-btn {
-  width: 100%;
-  background: none;
-  border: 1px solid var(--red);
-  color: var(--red);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 3px;
-  padding: 13px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.fail-btn:hover { background: rgba(255,58,58,0.08); }
-
 .modal-top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .difficulty-badge {
   font-size: 7px; letter-spacing: 2px;
@@ -839,6 +799,26 @@ canvas#terrain-canvas {
   color: var(--text);
   opacity: 0.92;
 }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.inp {
+  width: 100%;
+  background: rgba(2,4,8,0.9);
+  border: 1px solid var(--border-hi);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 10px 10px;
+  outline: none;
+}
+.inp:focus { border-color: var(--accent); }
+textarea.inp { min-height: 78px; resize: none; grid-column: 1 / -1; }
+
 .research-cta-row {
   display: flex;
   gap: 8px;
@@ -869,24 +849,17 @@ canvas#terrain-canvas {
 }
 .research-btn.danger:hover { background: rgba(255,58,58,0.08); }
 
-/* Tiny toast */
-.toast-mini {
-  position: fixed;
-  left: 12px;
-  top: 60px;
-  z-index: 1200;
+.status-pill {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  padding: 8px 10px;
   font-size: 9px;
   letter-spacing: 1px;
-  color: var(--accent);
-  border: 1px solid var(--border-hi);
-  background: rgba(0,0,0,0.7);
-  padding: 6px 10px;
-  opacity: 0;
-  transform: translateY(-6px);
-  transition: opacity 0.25s, transform 0.25s;
-  pointer-events: none;
+  color: var(--text-dim);
 }
-.toast-mini.show { opacity: 1; transform: translateY(0); }
+.status-pill.ok { border-color: #1a3a10; color: #80c860; }
+.status-pill.warn { border-color: var(--amber-dk); color: var(--amber); }
+.status-pill.bad { border-color: var(--red-dk); color: var(--red); }
 </style>
 </head>
 
@@ -895,7 +868,6 @@ canvas#terrain-canvas {
 <div id="overlay-vignette"></div>
 <div id="overlay-grain"></div>
 <div class="solar-glow" id="solar-glow"></div>
-<div class="toast-mini" id="toast-mini">COPIED</div>
 
 <!-- BOOT -->
 <div class="screen active" id="boot-screen">
@@ -941,7 +913,8 @@ canvas#terrain-canvas {
     <canvas id="threejs-canvas"></canvas>
     <canvas id="terrain-canvas"></canvas>
 
-    <div class="rover-wrap">
+    <!-- Keep SVG rover as HUD decoration (3D scene is terrain) -->
+    <div class="rover-wrap" id="rover-hud">
       <svg viewBox="0 0 130 210" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="59" y="65" width="12" height="130" fill="#0e1e2c"/>
         <rect x="61" y="65" width="8" height="130" fill="#0f2030"/>
@@ -973,7 +946,6 @@ canvas#terrain-canvas {
       <div class="to-row">SLIP  <span id="to-slip">2%</span></div>
     </div>
 
-    <div class="dir-indicator" id="dir-indicator">HDG: N</div>
     <div class="node-pill" id="node-pill">◈ GEO-NODE IN PROXIMITY</div>
     <div class="lat-banner" id="lat-banner">TRANSMITTING COMMAND…</div>
     <div class="toast-log" id="toast-log">SYS: AWAITING COMMAND</div>
@@ -1068,11 +1040,12 @@ canvas#terrain-canvas {
 <!-- RESEARCH-GRADE POST-MISSION MODAL (shown when energy hits 0%) -->
 <div class="modal-bg" id="research-modal">
   <div class="modal-card">
-    <div class="modal-tag">◈ RESEARCH MODE · AUTONOMY TRAINING OUTPUT</div>
-    <div class="research-title">ENERGY DEPLETED · DATASET READY</div>
+    <div class="modal-tag">◈ RESEARCH MODE · OPERATOR DECISION PACKET</div>
+    <div class="research-title">ENERGY DEPLETED · SUBMIT FOR DEV REVIEW</div>
     <div class="research-sub">
-      HEX-01 entered safe-offline. Your run is now a structured training packet.
-      <span style="color:var(--accent)">SEND TO DEV</span> will copy the packet and open an email draft for feasibility review (dev may forward to ISRO if feasible).
+      HEX-01 entered safe-offline. This run becomes a structured packet: energy strategy, mobility hazards, latency penalties, and science validation.
+      <br><br>
+      <span style="color:var(--accent)">CTA:</span> Send this packet to the dev team. If the mission plan looks feasible, they’ll forward a consolidated report to ISRO.
     </div>
 
     <div class="modal-divider"></div>
@@ -1101,38 +1074,44 @@ canvas#terrain-canvas {
     </div>
 
     <div class="packet-box">
-      <div class="packet-label">◈ TRAINING PACKET (PREVIEW)</div>
+      <div class="packet-label">◈ PACKET (SHORT PREVIEW)</div>
       <div class="packet-pre" id="packet-preview">—</div>
+
+      <div class="form-row">
+        <input class="inp" id="op-name" placeholder="Operator name (optional)" />
+        <input class="inp" id="op-email" placeholder="Email (optional)" />
+        <textarea class="inp" id="op-notes" placeholder="Notes for dev team (optional): goals, constraints, new feature request…"></textarea>
+      </div>
+
+      <div class="status-pill" id="submit-status">STATUS: READY · NOT SENT</div>
     </div>
 
     <div class="research-cta-row">
-      <button class="research-btn primary" onclick="saveResearchProgress()">SAVE PROGRESS</button>
-      <button class="research-btn primary" onclick="sendToDev()">SEND TO DEV</button>
+      <button class="research-btn primary" onclick="sendToDev()">SEND TO DEV REVIEW</button>
+      <button class="research-btn" onclick="copyPacket()">COPY PACKET</button>
       <button class="research-btn danger" onclick="endSim()">END SIMULATION</button>
     </div>
   </div>
 </div>
 
-<!-- FAIL MODAL (kept, but research modal is the main UX for 0% battery) -->
-<div class="modal-bg" id="fail-modal">
-  <div class="modal-card">
-    <div class="modal-tag">✕ CRITICAL SYSTEM ALERT</div>
-    <div class="fail-title">ENERGY DEPLETED</div>
-    <div class="fail-sub">ROVER HEX-01 OFFLINE · SOLAR RECOVERY REQUIRED</div>
-    <button class="fail-btn" onclick="endSim()">END SIMULATION</button>
-  </div>
-</div>
-
 <script>
 /* ============================================================
-   DEV CTA CONFIG (NEW)
+   CONFIG
    ============================================================ */
-/* ✅ Replace with your real dev email */
-const DEV_REVIEW_EMAIL = "dharam@viadecide.com";
 
-/* ============================================================
-   ENGINE
-   ============================================================ */
+/**
+ * Put your GLB file next to this HTML file and keep this name,
+ * or replace with your hosted URL/path.
+ */
+const GLB_MODEL_URL = "24881_Mars_1_6792.glb";
+
+/**
+ * Option A (recommended): provide a real endpoint and dev inbox.
+ * - DEV_WEBHOOK_URL: a server endpoint that accepts POST JSON.
+ * - DEV_FALLBACK_EMAIL: used for mailto fallback if webhook not configured.
+ */
+const DEV_WEBHOOK_URL = ""; // e.g. "https://yourdomain.com/api/hex01-submit"
+const DEV_FALLBACK_EMAIL = "dev@yourdomain.com"; // change to your dev email
 
 const MISSION_CONFIG = {
   communications: {
@@ -1158,7 +1137,7 @@ const TERRAIN_DATABASE = [
 ];
 
 /* ============================================================
-   RESEARCH-GRADE STATE EXTENSIONS
+   RESEARCH-GRADE STATE
    ============================================================ */
 const S = {
   energy: 84,
@@ -1171,7 +1150,6 @@ const S = {
   nodeNearby: false,
   _lastDir: null,
 
-  // Research metrics
   runId: null,
   startTs: null,
   endedTs: null,
@@ -1192,8 +1170,11 @@ const S = {
   log: []
 };
 
-let loops = { ambient: null, solar: null, nodes: null };
+let loops = { solar: null, nodes: null };
 
+/* ============================================================
+   CHALLENGES
+   ============================================================ */
 const CHALLENGES = [
   {
     id: "Q_001", instrument: "APXS · MSL", difficulty: "CRITICAL",
@@ -1230,88 +1211,16 @@ const CHALLENGES = [
       { text: "C) Pure Hematite", correct: false },
     ],
     explanation: "The fractured rock exposed pure sulfur crystals — the first time elemental sulfur had been detected in pure form on Mars."
-  },
-  {
-    id: "Q_004", instrument: "NavCam · MSL", difficulty: "ENGINEERING",
-    title: "NavCam Mounting Height — MSL Engineering Spec",
-    sub: "Configuring boresight for high-resolution terrain context mosaic.",
-    question: "You are configuring the NavCam boresight for a high-resolution terrain context mosaic. According to MSL engineering specifications, at what height is the upper primary NavCam pair mounted above the base of the rover wheels?",
-    choices: [
-      { text: "A) 1.10 m", correct: false },
-      { text: "B) 1.99 m", correct: true },
-      { text: "C) 0.85 m", correct: false },
-    ],
-    explanation: "The upper primary NavCam pair on MSL's Remote Sensing Mast is mounted at 1.99 m above the rover wheel base."
-  },
-  {
-    id: "Q_005", instrument: "APXS · Chandrayaan-3 / PRL", difficulty: "CALIBRATION",
-    title: "Pragyan APXS — Primary Calibration Target Elements",
-    sub: "Characteristic X-ray emission analysis on lunar regolith.",
-    question: "The Pragyan rover (Chandrayaan-3) APXS, developed by the Physical Research Laboratory (PRL), uses \"characteristic X-rays\" to identify elements. Which specific group of elements is the instrument primarily calibrated to quantify in the lunar soil?",
-    choices: [
-      { text: "A) Noble gases including Neon and Argon", correct: false },
-      { text: "B) Major and minor elements such as Si, Mg, Al, Fe, Ca, and Ti", correct: true },
-      { text: "C) Heavy radioactive isotopes only", correct: false },
-    ],
-    explanation: "The Pragyan APXS (PRL) is calibrated for major rock-forming elements: Silicon, Magnesium, Aluminum, Iron, Calcium, and Titanium."
-  },
-  {
-    id: "Q_006", instrument: "Mobility · MSL", difficulty: "MOBILITY",
-    title: "Rocker-Bogie Suspension — Primary Operational Advantage",
-    sub: "Suspension design comparison: rocker-bogie vs. traditional spring systems.",
-    question: "The rover's mobility system utilizes a 'rocker-bogie' suspension design rather than traditional springs. What is the primary operational advantage of this mechanical configuration when navigating rough Martian terrain?",
-    choices: [
-      { text: "A) It allows the rover to achieve higher top speeds on flat terrain like basaltic plains.", correct: false },
-      { text: "B) It maintains relatively equal weight distribution on all six wheels while climbing obstacles larger than the wheel diameter.", correct: true },
-      { text: "C) It physically lifts the main rover chassis to step over large boulders.", correct: false },
-    ],
-    explanation: "Rocker-bogie is a passive linkage (no springs). It redistributes load to keep traction on uneven terrain and reduces tip risk; this enables obstacle negotiation near wheel diameter."
-  },
-  {
-    id: "Q_007", instrument: "NavCam · Mobility", difficulty: "MOBILITY",
-    title: "Rocker-Bogie Slip Monitoring — Instrument Objective",
-    sub: "NavCam detects sudden increase in wheel sinkage.",
-    question: "If the NavCam detects a sudden increase in wheel sinkage, the operator must assess the \"slip\" risk. Which instrument objective covers this monitoring?",
-    choices: [
-      { text: "A) Investigating landing sites at meter-scale resolution", correct: false },
-      { text: "B) Mobility planning including wheel sinkage and obstruction analysis", correct: true },
-      { text: "C) Atmospheric pressure monitoring for dust devil detection", correct: false },
-    ],
-    explanation: "NavCam supports traversal planning, hazard detection, and wheel sinkage/obstruction assessment."
-  },
-  {
-    id: "Q_008", instrument: "APXS · Chandrayaan-3", difficulty: "CALIBRATION",
-    title: "Pragyan APXS Calibration Standards",
-    sub: "Known metallic standards mounted on rover for calibration checks.",
-    question: "Pragyan APXS performs calibration checks using known metallic standards. Which set best matches a plausible calibration set used for well-characterised XRF spectra?",
-    choices: [
-      { text: "A) Gold, Silver, Platinum, and Nickel", correct: false },
-      { text: "B) Stainless Steel, Copper, Titanium, and Aluminum", correct: true },
-      { text: "C) Iron, Lead, Zinc, and Magnesium", correct: false },
-    ],
-    explanation: "Stainless steel, copper, titanium, and aluminum are common calibration-friendly materials due to stable, well-known characteristic lines."
-  },
-  {
-    id: "Q_009", instrument: "APXS · MSL Design", difficulty: "METHODOLOGY",
-    title: "MSL APXS Dual Methodology — Analytical Techniques",
-    sub: "Two integrated terrestrial methods in MSL APXS design.",
-    question: "The APXS instrument utilizes a combination of two terrestrial methods. Which two are integrated into MSL APXS design?",
-    choices: [
-      { text: "A) LIBS and Mass Spectrometry", correct: false },
-      { text: "B) PIXE and XRF", correct: true },
-      { text: "C) Gamma Ray Spectroscopy and Neutron Activation", correct: false },
-    ],
-    explanation: "APXS combines alpha-particle induced X-ray emission (PIXE) and X-ray fluorescence (XRF)."
   }
 ];
 
 let challengeIdx = 0;
 let selectedChoiceIdx = null;
 
-/* ── LEGACY 2D TERRAIN (FALLBACK) ────────────────────────── */
+/* ============================================================
+   TERRAIN RENDER FALLBACK (2D)
+   ============================================================ */
 let canvas2d, ctx2d;
-let tx = 0, ty = 0;
-
 function initCanvas2d() {
   canvas2d = document.getElementById('terrain-canvas');
   const vp = document.getElementById('viewport');
@@ -1322,11 +1231,10 @@ function initCanvas2d() {
     canvas2d.height = vp.offsetHeight;
   });
 }
-
 function drawTerrain2d() {
-  if (!ctx2d) { ctx2d = canvas2d.getContext('2d'); }
+  if (!ctx2d) ctx2d = canvas2d.getContext('2d');
   const w = canvas2d.width, h = canvas2d.height;
-  ctx2d.clearRect(0, 0, w, h);
+  ctx2d.clearRect(0,0,w,h);
 
   const sky = ctx2d.createLinearGradient(0, 0, 0, h * 0.48);
   sky.addColorStop(0, '#060204');
@@ -1341,34 +1249,232 @@ function drawTerrain2d() {
   ctx2d.fillStyle = grd;
   ctx2d.fillRect(0, h*0.46, w, h*0.54);
 }
-
-let use3D = false;
 let rAF2d = null;
-
 function renderLoop2d() {
   drawTerrain2d();
   rAF2d = requestAnimationFrame(renderLoop2d);
 }
 
+/* ============================================================
+   MOVEMENT
+   ============================================================ */
 const DIR_VECTORS = {
   N:[0,-1], NE:[1,-1], E:[1,0], SE:[1,1],
   S:[0,1], SW:[-1,1], W:[-1,0], NW:[-1,-1]
 };
 
 /* ============================================================
-   THREE.JS renderer placeholder (kept)
+   3D RENDERER (REAL IMPLEMENTATION)
    ============================================================ */
+let use3D = false;
+
 const Renderer3D = (() => {
   let ready = false;
-  return {
-    init(){ ready = !!window.THREE; return ready; },
-    start(){},
-    stop(){},
-    applySnapshot(){},
-    onStormStart(){},
-    onStormStop(){},
-    isReady(){ return ready; }
-  };
+  let scene, camera, renderer, clock;
+  let root = null;          // glb root
+  let loaded = false;
+  let vpEl = null;
+  let canvasEl = null;
+
+  // movement offsets (we move terrain "under" the rover)
+  let terrainX = 0;
+  let terrainZ = 0;
+
+  // simple environment
+  let fog = null;
+  let sun = null;
+
+  function setStatusLED(ok) {
+    const led = document.getElementById('status-led');
+    if (!led) return;
+    led.setAttribute('opacity', ok ? '0.7' : '0.25');
+  }
+
+  function init() {
+    ready = !!(window.THREE && window.THREE.GLTFLoader);
+    return ready;
+  }
+
+  function resize() {
+    if (!renderer || !camera || !vpEl) return;
+    const w = vpEl.clientWidth;
+    const h = vpEl.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+
+  function buildFallbackGround() {
+    const g = new THREE.PlaneGeometry(120, 120, 1, 1);
+    const m = new THREE.MeshStandardMaterial({ color: 0x2a140b, roughness: 1.0, metalness: 0.0 });
+    const p = new THREE.Mesh(g, m);
+    p.rotation.x = -Math.PI/2;
+    p.position.y = 0;
+    scene.add(p);
+  }
+
+  function loadGLB(url) {
+    return new Promise((resolve, reject) => {
+      const loader = new THREE.GLTFLoader();
+      loader.load(
+        url,
+        (gltf) => resolve(gltf),
+        undefined,
+        (err) => reject(err)
+      );
+    });
+  }
+
+  async function start() {
+    try {
+      vpEl = document.getElementById('viewport');
+      canvasEl = document.getElementById('threejs-canvas');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x05080c);
+
+      fog = new THREE.Fog(0x05080c, 6, 28);
+      scene.fog = fog;
+
+      const w = vpEl.clientWidth;
+      const h = vpEl.clientHeight;
+
+      camera = new THREE.PerspectiveCamera(
+        50,                 // “50mm feel”
+        w / h,
+        0.1,
+        200
+      );
+      camera.position.set(0, 4.0, 10.5);
+      camera.lookAt(0, 0.6, 0);
+
+      renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(w, h, false);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+
+      // lights
+      sun = new THREE.DirectionalLight(0xffb37a, 1.4);
+      sun.position.set(6, 10, 6);
+      scene.add(sun);
+
+      const amb = new THREE.AmbientLight(0x4b2a18, 0.55);
+      scene.add(amb);
+
+      // root group so we can move it easily
+      root = new THREE.Group();
+      scene.add(root);
+
+      // try to load model
+      setStatusLED(false);
+      const gltf = await loadGLB(GLB_MODEL_URL);
+      loaded = true;
+      setStatusLED(true);
+
+      // add glb scene into root
+      root.add(gltf.scene);
+
+      // normalize scale (safe generic)
+      // If your Mars model is too big/small, adjust the scalar below.
+      const SCALE = 1.0;
+      gltf.scene.scale.setScalar(SCALE);
+
+      // if it’s not flat, we still keep it centered
+      gltf.scene.position.set(0, 0, 0);
+
+      // If model has lights/cameras, ignore them (we use ours)
+      // Improve material response
+      gltf.scene.traverse((obj) => {
+        if (obj.isMesh) {
+          obj.castShadow = false;
+          obj.receiveShadow = true;
+          if (obj.material) {
+            obj.material.side = THREE.FrontSide;
+          }
+        }
+      });
+
+      // if the model has no floor, keep fallback ground
+      // (we keep it anyway but subtle)
+      buildFallbackGround();
+
+      clock = new THREE.Clock();
+
+      window.addEventListener('resize', resize);
+
+      animate();
+    } catch (e) {
+      // Fail-safe to 2D
+      loaded = false;
+      setStatusLED(false);
+      stop();
+      throw e;
+    }
+  }
+
+  let raf = null;
+  function animate() {
+    raf = requestAnimationFrame(animate);
+
+    const dt = clock ? clock.getDelta() : 0.016;
+
+    // subtle camera motion for life
+    const t = performance.now() * 0.0002;
+    camera.position.x = Math.sin(t) * 0.15;
+    camera.position.y = 4.0 + Math.sin(t * 1.6) * 0.05;
+
+    // follow the “terrain offset” smoothly (we move terrain, not rover)
+    if (root) {
+      root.position.x += (terrainX - root.position.x) * Math.min(1, dt * 6);
+      root.position.z += (terrainZ - root.position.z) * Math.min(1, dt * 6);
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  function stop() {
+    if (raf) cancelAnimationFrame(raf);
+    raf = null;
+
+    window.removeEventListener('resize', resize);
+
+    if (renderer) {
+      renderer.dispose?.();
+    }
+
+    scene = null; camera = null; renderer = null;
+    root = null; loaded = false;
+    terrainX = 0; terrainZ = 0;
+  }
+
+  function applySnapshot(snap) {
+    // dust storm: increase fog density and tint
+    if (!scene || !fog || !sun) return;
+    if (snap.stormActive) {
+      fog.near = 3;
+      fog.far = 16;
+      scene.fog.color.setHex(0x2a1508);
+      sun.color.setHex(0xffa35d);
+      sun.intensity = 1.05;
+    } else {
+      fog.near = 6;
+      fog.far = 28;
+      scene.fog.color.setHex(0x05080c);
+      sun.color.setHex(0xffb37a);
+      sun.intensity = 1.4;
+    }
+  }
+
+  function nudgeTerrain(dx, dz) {
+    // move “world” opposite to rover direction for the illusion of rover moving
+    terrainX -= dx;
+    terrainZ -= dz;
+  }
+
+  function isReady() { return ready; }
+  function isLoaded() { return loaded; }
+
+  return { init, start, stop, applySnapshot, nudgeTerrain, isReady, isLoaded };
 })();
 
 /* ============================================================
@@ -1420,29 +1526,29 @@ document.addEventListener('keydown', ev => {
 /* ============================================================
    RESEARCH HELPERS
    ============================================================ */
-const STORAGE_KEY = 'HEX01_RESEARCH_RUN_V1';
-
 function nowISO() { return new Date().toISOString(); }
 function mkRunId() {
   const t = Date.now().toString(36);
   const r = Math.random().toString(36).slice(2, 8);
   return `HEX01-${t}-${r}`.toUpperCase();
 }
-
 function logEvent(type, data = {}) {
   S.log.push({ t: nowISO(), type, ...data });
-  if (S.log.length > 120) S.log.splice(0, S.log.length - 120);
+  if (S.log.length > 150) S.log.splice(0, S.log.length - 150);
 }
-
 function buildResearchPacket() {
   const total = S.metrics.correct + S.metrics.wrong;
   const acc = total > 0 ? (S.metrics.correct / total) : null;
-
   return {
-    schema: "HEX01_RESEARCH_PACKET_V1",
+    schema: "HEX01_REVIEW_PACKET_V1",
     runId: S.runId,
     startedAt: S.startTs,
     endedAt: S.endedTs,
+    operator: {
+      name: (document.getElementById('op-name')?.value || "").trim() || null,
+      email: (document.getElementById('op-email')?.value || "").trim() || null,
+      notes: (document.getElementById('op-notes')?.value || "").trim() || null
+    },
     mission: {
       quadrant: "A3",
       solLabel: document.getElementById('sol-text')?.textContent || "SOL ?",
@@ -1462,52 +1568,18 @@ function buildResearchPacket() {
     },
     derived: {
       tilesUnlocked: Math.floor(S.validation / 10),
-      riskIndex: S.metrics.slips + S.metrics.storms,
-      energyEfficiency: {
-        moves: S.metrics.moves > 0 ? Math.round((S.metrics.energySpentMoves / S.metrics.moves) * 100) / 100 : null,
-        scans: S.metrics.scans > 0 ? Math.round((S.metrics.energySpentScans / S.metrics.scans) * 100) / 100 : null,
-      }
+      riskIndex: S.metrics.slips + S.metrics.storms
     },
     eventLog: S.log
   };
 }
-
-function toastMini(msg) {
-  const t = document.getElementById('toast-mini');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 1100);
+function setSubmitStatus(text, cls) {
+  const el = document.getElementById('submit-status');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'status-pill ' + (cls || '');
 }
-
-async function copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    toastMini('COPIED');
-    return true;
-  } catch (e) {
-    // fallback (not always allowed in modern browsers)
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      if (ok) toastMini('COPIED');
-      return ok;
-    } catch (e2) {
-      return false;
-    }
-  }
-}
-
 function openResearchModal() {
-  const modal = document.getElementById('research-modal');
-  if (!modal) return;
-
   const packet = buildResearchPacket();
   const total = S.metrics.correct + S.metrics.wrong;
   const accPct = total ? Math.round((S.metrics.correct / total) * 100) : null;
@@ -1515,83 +1587,111 @@ function openResearchModal() {
   document.getElementById('rg-val').textContent = `${S.validation} pts`;
   document.getElementById('rg-val-mini').textContent = `${Math.floor(S.validation/10)} validated tiles unlocked`;
 
-  document.getElementById('rg-acc').textContent = (accPct === null) ? '—' : `${accPct}%`;
-  document.getElementById('rg-acc').className = 'r-v ' + (accPct === null ? '' : (accPct >= 70 ? 'good' : accPct >= 45 ? 'warn' : 'bad'));
+  const accEl = document.getElementById('rg-acc');
+  accEl.textContent = (accPct === null) ? '—' : `${accPct}%`;
+  accEl.className = 'r-v ' + (accPct === null ? '' : (accPct >= 70 ? 'good' : accPct >= 45 ? 'warn' : 'bad'));
   document.getElementById('rg-acc-mini').textContent = `${S.metrics.correct} correct / ${total} total analyses`;
 
   const risk = S.metrics.slips + S.metrics.storms;
-  document.getElementById('rg-risk').textContent = `${risk}`;
-  document.getElementById('rg-risk').className = 'r-v ' + (risk <= 2 ? 'good' : risk <= 5 ? 'warn' : 'bad');
+  const riskEl = document.getElementById('rg-risk');
+  riskEl.textContent = `${risk}`;
+  riskEl.className = 'r-v ' + (risk <= 2 ? 'good' : risk <= 5 ? 'warn' : 'bad');
   document.getElementById('rg-risk-mini').textContent = `${S.metrics.slips} slips · ${S.metrics.storms} storms`;
 
-  document.getElementById('rg-lat').textContent = `+${S.metrics.latencyPenaltySeconds}s`;
-  document.getElementById('rg-lat').className = 'r-v ' + (S.metrics.latencyPenaltySeconds <= 120 ? 'good' : S.metrics.latencyPenaltySeconds <= 360 ? 'warn' : 'bad');
+  const latEl = document.getElementById('rg-lat');
+  latEl.textContent = `+${S.metrics.latencyPenaltySeconds}s`;
+  latEl.className = 'r-v ' + (S.metrics.latencyPenaltySeconds <= 120 ? 'good' : S.metrics.latencyPenaltySeconds <= 360 ? 'warn' : 'bad');
   document.getElementById('rg-lat-mini').textContent = `playable latency now ${Math.floor(S.playableLatencyMs)}ms`;
 
-  const preview = JSON.stringify(packet, null, 2);
-  document.getElementById('packet-preview').textContent =
-    preview.length > 1400 ? (preview.slice(0, 1400) + "\n…(preview truncated)") : preview;
+  // Short preview (no big JSON UI)
+  const previewObj = {
+    runId: packet.runId,
+    validation: packet.finalState.validation,
+    energy: packet.finalState.energy,
+    accuracy: packet.metrics.decisionAccuracy,
+    riskIndex: packet.derived.riskIndex,
+    latencyPenaltySeconds: packet.metrics.latencyPenaltySeconds
+  };
+  document.getElementById('packet-preview').textContent = JSON.stringify(previewObj, null, 2);
 
-  modal.classList.add('open');
+  setSubmitStatus('STATUS: READY · NOT SENT', '');
+  document.getElementById('research-modal').classList.add('open');
 }
 
-function saveResearchProgress() {
-  const packet = buildResearchPacket();
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(packet));
-    logToast('RESEARCH PACKET SAVED LOCALLY');
-    logEvent('SAVE_PROGRESS', { key: STORAGE_KEY });
-    toastMini('SAVED');
-  } catch (e) {
-    logToast('ERROR: SAVE FAILED (STORAGE BLOCKED)');
-  }
-}
-
-/* ============================================================
-   SEND TO DEV (NEW — replaces “export json wall” as your CTA)
-   - Copies packet
-   - Opens email draft (mailto)
-   ============================================================ */
+/* ===== CTA: SEND TO DEV (replaces “export json” as main action) ===== */
 async function sendToDev() {
   const packet = buildResearchPacket();
-  const json = JSON.stringify(packet, null, 2);
+  setSubmitStatus('STATUS: SENDING…', 'warn');
 
-  const copied = await copyToClipboard(json);
-  if (!copied) {
-    logToast('COPY BLOCKED · MANUALLY COPY FROM PREVIEW');
-  } else {
-    logToast('PACKET COPIED · OPENING EMAIL DRAFT');
+  // Option A: webhook (best)
+  if (DEV_WEBHOOK_URL && DEV_WEBHOOK_URL.trim().length > 0) {
+    try {
+      const res = await fetch(DEV_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(packet)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      setSubmitStatus('STATUS: SENT ✓ DEV REVIEW QUEUED', 'ok');
+      logToast('PACKET SENT TO DEV TEAM');
+      logEvent('DEV_SUBMIT', { via: 'webhook', ok: true });
+      return;
+    } catch (e) {
+      setSubmitStatus('STATUS: WEBHOOK FAILED · FALLING BACK', 'bad');
+      logEvent('DEV_SUBMIT', { via: 'webhook', ok: false, err: String(e) });
+      // continue to fallback below
+    }
   }
 
-  const total = S.metrics.correct + S.metrics.wrong;
-  const accPct = total ? Math.round((S.metrics.correct / total) * 100) : 0;
+  // Option B: mailto fallback (works without backend)
+  try {
+    const subject = encodeURIComponent(`HEX-01 Review Packet · ${packet.runId}`);
+    // keep body short to avoid mailto length issues
+    const bodyObj = {
+      runId: packet.runId,
+      startedAt: packet.startedAt,
+      endedAt: packet.endedAt,
+      operator: packet.operator,
+      summary: {
+        validation: packet.finalState.validation,
+        energy: packet.finalState.energy,
+        decisionAccuracy: packet.metrics.decisionAccuracy,
+        riskIndex: packet.derived.riskIndex,
+        latencyPenaltySeconds: packet.metrics.latencyPenaltySeconds
+      },
+      note: "If feasible, please forward consolidated review to ISRO."
+    };
+    const body = encodeURIComponent(
+      "HEX-01 DEV REVIEW REQUEST\n\n" +
+      JSON.stringify(bodyObj, null, 2) +
+      "\n\n(Full packet copied to clipboard via COPY PACKET button if needed.)"
+    );
 
-  const subject = encodeURIComponent(`HEX-01 Feasibility Review Packet — ${packet.runId}`);
-  const body = encodeURIComponent(
-`Hello Dev Team,
+    window.location.href = `mailto:${DEV_FALLBACK_EMAIL}?subject=${subject}&body=${body}`;
+    setSubmitStatus('STATUS: EMAIL DRAFT OPENED · SEND MANUALLY', 'ok');
+    logToast('EMAIL DRAFT GENERATED');
+    logEvent('DEV_SUBMIT', { via: 'mailto', ok: true });
+  } catch (e) {
+    setSubmitStatus('STATUS: SEND FAILED · USE COPY PACKET', 'bad');
+    logToast('ERROR: UNABLE TO OPEN EMAIL CLIENT');
+    logEvent('DEV_SUBMIT', { via: 'mailto', ok: false, err: String(e) });
+  }
+}
 
-Please review this HEX-01 training packet for mission feasibility and simulator improvements.
-If feasible, forward a summary to ISRO.
-
-Run ID: ${packet.runId}
-Validation: ${packet.finalState.validation} pts
-Tiles Unlocked: ${packet.derived.tilesUnlocked}
-Decision Accuracy: ${accPct}%
-Risk Index: ${packet.derived.riskIndex}
-Latency Penalty: +${packet.metrics.latencyPenaltySeconds}s
-
-INSTRUCTIONS:
-1) Paste the copied JSON packet below (clipboard).
-2) Provide feasibility notes and recommended upgrades.
-
---- PASTE PACKET JSON BELOW ---
-${copied ? "[PASTE COPIED PACKET HERE]" : json}
-`
-  );
-
-  // Opens device email client with prefilled draft
-  window.location.href = `mailto:${encodeURIComponent(DEV_REVIEW_EMAIL)}?subject=${subject}&body=${body}`;
-  logEvent('SEND_TO_DEV', { email: DEV_REVIEW_EMAIL, copied });
+async function copyPacket() {
+  const packet = buildResearchPacket();
+  const txt = JSON.stringify(packet, null, 2);
+  try {
+    await navigator.clipboard.writeText(txt);
+    setSubmitStatus('STATUS: COPIED ✓ (PASTE TO DEV CHAT/EMAIL)', 'ok');
+    logToast('PACKET COPIED TO CLIPBOARD');
+    logEvent('PACKET_COPY', {});
+  } catch (e) {
+    // fallback: prompt
+    prompt('Copy this packet:', txt);
+    setSubmitStatus('STATUS: MANUAL COPY (PROMPT)', 'warn');
+    logEvent('PACKET_COPY', { fallback: true });
+  }
 }
 
 /* ============================================================
@@ -1613,7 +1713,15 @@ function initiateControl() {
     use3D = true;
     document.getElementById('terrain-canvas').style.display = 'none';
     document.getElementById('threejs-canvas').style.display = 'block';
-    Renderer3D.start();
+    Renderer3D.start().catch(() => {
+      // if GLB fails, fall back to 2D
+      use3D = false;
+      document.getElementById('terrain-canvas').style.display = 'block';
+      document.getElementById('threejs-canvas').style.display = 'none';
+      initCanvas2d();
+      renderLoop2d();
+      logToast('3D LOAD FAILED · FALLBACK 2D');
+    });
   } else {
     use3D = false;
     document.getElementById('terrain-canvas').style.display = 'block';
@@ -1627,21 +1735,21 @@ function initiateControl() {
 }
 
 function endSim() {
+  // Close modals
   document.getElementById('research-modal').classList.remove('open');
   document.getElementById('result-modal').classList.remove('open');
   document.getElementById('challenge-modal').classList.remove('open');
-  document.getElementById('fail-modal').classList.remove('open');
 
   document.getElementById('sim-screen').classList.remove('active');
   document.getElementById('boot-screen').classList.add('active');
 
-  clearInterval(loops.ambient);
   clearInterval(loops.solar);
   clearInterval(loops.nodes);
 
   if (use3D) Renderer3D.stop();
-  else if (rAF2d) { cancelAnimationFrame(rAF2d); rAF2d = null; }
+  if (rAF2d) { cancelAnimationFrame(rAF2d); rAF2d = null; }
 
+  // reset state
   S.energy = 84;
   S.validation = 0;
   S.roverState = 'IDLE';
@@ -1665,7 +1773,6 @@ function endSim() {
 
   challengeIdx = 0;
   selectedChoiceIdx = null;
-  tx = 0; ty = 0;
 
   updateUI();
 }
@@ -1700,7 +1807,7 @@ function updateUI() {
 
   const rsb = document.getElementById('rsb');
   rsb.textContent = S.roverState;
-  rsb.className = 'rover-state-badge ' + (S.roverState.includes('MOVING') ? 'moving' : S.roverState === 'SCANNING' ? 'scanning' : '');
+  rsb.className = 'rover-state-badge ' + (String(S.roverState).includes('MOVING') ? 'moving' : S.roverState === 'SCANNING' ? 'scanning' : '');
 
   const scanBtn = document.getElementById('scan-btn');
   const canScan = (S.roverState === 'IDLE' && S.energy >= MISSION_CONFIG.instruments.apxs_spectrometer.energyCostPct);
@@ -1718,6 +1825,7 @@ function updateUI() {
   document.getElementById('storm-veil').classList.toggle('active', S.stormActive);
   document.getElementById('hb-veil').classList.toggle('pulse', S.energy < 15);
 
+  // battery 0% -> research modal
   if (S.energy <= 0 && !S.isOffline) {
     S.energy = 0;
     S.isOffline = true;
@@ -1725,7 +1833,6 @@ function updateUI() {
     S.endedTs = nowISO();
     logEvent('RUN_END', { reason: 'ENERGY_DEPLETED' });
 
-    clearInterval(loops.ambient);
     clearInterval(loops.solar);
     clearInterval(loops.nodes);
 
@@ -1743,6 +1850,9 @@ function logToast(msg) {
   document.getElementById('toast-log').textContent = 'SYS: ' + msg;
 }
 
+/* ============================================================
+   LOOPS
+   ============================================================ */
 function startLoops() {
   loops.solar = setInterval(() => {
     if (S.isOffline) return;
@@ -1750,6 +1860,7 @@ function startLoops() {
       const chargeBase = 0.5;
       const charge = S.stormActive ? chargeBase * MISSION_CONFIG.powerSystems.solar.dustStormMultiplier : chargeBase;
       S.energy = Math.min(100, S.energy + charge);
+
       if (!S.stormActive) {
         const sg = document.getElementById('solar-glow');
         sg.classList.add('active');
@@ -1771,7 +1882,9 @@ function startLoops() {
   }, 4000);
 }
 
-/* ── MOVE ──────────────────────────────────────────────── */
+/* ============================================================
+   MOVE
+   ============================================================ */
 function move(dir) {
   if (S.isOffline) return;
   if (S.roverState !== 'IDLE' || S.energy <= 0) return;
@@ -1807,8 +1920,11 @@ function executeMove(dir) {
   S.metrics.energySpentMoves += drain;
 
   const v = DIR_VECTORS[dir] || [0,0];
-  tx += v[0] * 18;
-  ty += v[1] * 18;
+
+  // 3D: move world (terrain) opposite direction
+  if (use3D && Renderer3D.isLoaded()) {
+    Renderer3D.nudgeTerrain(v[0] * 0.55, v[1] * 0.55);
+  }
 
   if (Math.random() < S.currentTerrain.hazards.slipProbability) {
     logToast('HAZARD: WHEEL SLIP — EXTRA POWER DRAWN');
@@ -1831,7 +1947,9 @@ function executeMove(dir) {
   updateUI();
 }
 
-/* ── SCAN (fixed) ────────────────────────────────────── */
+/* ============================================================
+   SCAN
+   ============================================================ */
 function startScan() {
   if (S.isOffline) return;
 
@@ -1871,7 +1989,9 @@ function startScan() {
   }, S.playableLatencyMs);
 }
 
-/* ── CHALLENGE MODAL ────────────────────────────────────── */
+/* ============================================================
+   CHALLENGE MODAL
+   ============================================================ */
 function showChallenge() {
   if (S.isOffline) return;
 
@@ -1946,7 +2066,9 @@ function submitAnswer() {
   };
 }
 
-/* ── RESULT ─────────────────────────────────────────────── */
+/* ============================================================
+   RESULT
+   ============================================================ */
 function applyResult(correct) {
   if (S.isOffline) return;
 
@@ -2012,8 +2134,7 @@ const BOOT_LINES = [
   { text: 'Mission:',                   key: 'Geological Survey · Quadrant A3', val: null, cls: '' },
   { text: 'Solar charge:',             key: '84%',          val: null,          cls: '' },
   { text: 'Signal latency:',           key: '12m 30s',      val: null,          cls: '' },
-  { text: 'APXS spectrometer:',        key: 'NOMINAL',      val: null,          cls: '' },
-  { text: '3D renderer:',              key: window.THREE ? 'THREE.JS r128' : 'FALLBACK 2D', val: null, cls: '' },
+  { text: '3D terrain:',               key: 'GLB',          val: 'READY',       cls: 'bl-val' },
   { text: 'All systems nominal.',       key: null,           val: 'READY',       cls: 'bl-ok' },
 ];
 
@@ -2039,4 +2160,4 @@ const BOOT_LINES = [
 })();
 </script>
 </body>
-</html>
+           </html>
