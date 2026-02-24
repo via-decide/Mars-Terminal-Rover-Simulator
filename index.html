@@ -701,6 +701,176 @@ body {
   /* FIX: make role cards full-width on very narrow screens */
   .role-card { width: calc(min(180px, 90vw)); }
 }
+
+  /* ==============================
+   DEMO LOGIN OVERLAY (Single-HTML)
+============================== */
+#demo-login {
+  position: fixed; inset: 0;
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0,0,0,.78);
+  backdrop-filter: blur(8px);
+}
+
+#demo-login.open { display: flex; }
+
+.demo-card {
+  width: min(440px, 100%);
+  background: #0d1825;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 20px 70px rgba(0,0,0,.6);
+}
+
+.demo-pill {
+  display: inline-block;
+  font-family: var(--fm);
+  font-size: .62rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,214,143,.35);
+  color: var(--go);
+  background: rgba(0,214,143,.08);
+  margin-bottom: 10px;
+}
+
+.demo-title {
+  font-family: var(--fn);
+  font-weight: 900;
+  font-size: 1.4rem;
+  margin: 0 0 8px;
+  color: var(--saffron);
+}
+
+.demo-text {
+  color: rgba(232,237,245,.78);
+  font-size: .92rem;
+  line-height: 1.7;
+  margin: 0 0 14px;
+}
+
+.demo-input {
+  width: 100%;
+  background: var(--bg-deep);
+  border: 1px solid rgba(255,255,255,.14);
+  color: #fff;
+  padding: 12px 14px;
+  border-radius: 12px;
+  outline: none;
+  font-size: .95rem;
+}
+
+.demo-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.demo-btn {
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(13,24,37,.9);
+  color: #fff;
+  border-radius: 12px;
+  padding: 11px 12px;
+  cursor: pointer;
+  font-weight: 800;
+  font-family: var(--fm);
+  font-size: .72rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.demo-btn.primary {
+  border-color: rgba(255,153,51,.55);
+  background: rgba(255,153,51,.16);
+  color: var(--saffron);
+}
+
+.demo-err {
+  display: none;
+  margin-top: 10px;
+  color: #f87171;
+  font-size: .88rem;
+}
+
+.demo-tip {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255,153,51,.30);
+  color: rgba(232,237,245,.75);
+  font-size: .82rem;
+  line-height: 1.6;
+}
+
+/* Small top banner inside the app */
+#inapp-banner {
+  position: fixed;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  width: min(620px, 94vw);
+  display: none;
+  background: rgba(13,24,37,.92);
+  border: 1px solid rgba(255,153,51,.25);
+  border-radius: 14px;
+  padding: 10px 12px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.45);
+}
+
+#inapp-banner.show { display: block; }
+
+#inapp-banner .row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+#inapp-banner .msg {
+  font-family: var(--fb);
+  font-size: .85rem;
+  color: rgba(232,237,245,.80);
+  line-height: 1.4;
+}
+
+#inapp-banner .msg b { color: var(--saffron); }
+
+#inapp-banner .bbtn {
+  border: 1px solid rgba(0,214,143,.35);
+  background: rgba(0,214,143,.10);
+  color: var(--go);
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-family: var(--fm);
+  font-size: .62rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+#inapp-banner .xbtn {
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.75);
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-family: var(--fm);
+  font-size: .62rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
 </style>
 </head>
 <body>
@@ -1154,6 +1324,99 @@ body {
 <div id="toast-wrap"></div>
 
 <script>
+
+  /* ==============================
+   DEMO LOGIN GUARD (Single-HTML)
+============================== */
+const DEMO_AUTH_KEY = "mars_demo_session_v1";
+const DEMO_CODE = "MARS200"; // change anytime
+
+function isInAppBrowser() {
+  const ua = navigator.userAgent || "";
+  return /Instagram|FBAN|FBAV|FB_IAB|Line|Twitter|Snapchat/i.test(ua);
+}
+
+function isDemoAuthed() {
+  try { return localStorage.getItem(DEMO_AUTH_KEY) === "1"; }
+  catch(e) { return false; }
+}
+
+function setDemoAuthed() {
+  try { localStorage.setItem(DEMO_AUTH_KEY, "1"); } catch(e) {}
+}
+
+function openDemoLogin() {
+  const modal = document.getElementById("demo-login");
+  if (!modal) return;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  const inp = document.getElementById("demo-code");
+  const err = document.getElementById("demo-err");
+  if (err) err.style.display = "none";
+  setTimeout(() => inp?.focus(), 150);
+}
+
+function closeDemoLogin() {
+  const modal = document.getElementById("demo-login");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function demoUnlock() {
+  const v = (document.getElementById("demo-code")?.value || "").trim().toUpperCase();
+  const err = document.getElementById("demo-err");
+  if (v === DEMO_CODE) {
+    setDemoAuthed();
+    closeDemoLogin();
+    // now actually enter the app
+    enterApp(true);
+  } else {
+    if (err) err.style.display = "block";
+  }
+}
+
+  function enterApp(force = false){
+  // ✅ If not authed, show demo login overlay and STOP.
+  if (!force && !isDemoAuthed()) {
+    openDemoLogin();
+    return;
+  }
+
+  introGone = true;
+  clearInterval(introTimer);
+
+  const iw = document.getElementById('intro-wrapper');
+  const aw = document.getElementById('app-wrapper');
+
+  iw.classList.add('exiting');
+  aw.classList.add('visible');
+
+  document.body.style.overflowY = 'hidden';
+
+  setTimeout(()=>{ iw.classList.add('hidden'); }, 900);
+
+  if(!appBooted) { appBooted=true; appBoot(); }
+
+  // ✅ show “open in browser” helper if needed
+  showInAppBannerIfNeeded();
+  }
+
+  
+function demoOpenInBrowserTip() {
+  alert("Instagram/Facebook: tap ⋯ (top right) → Open in browser (Chrome) for best experience.");
+}
+
+function showInAppBannerIfNeeded() {
+  const b = document.getElementById("inapp-banner");
+  if (!b) return;
+  if (isInAppBrowser()) b.classList.add("show");
+}
+
+function hideInAppBanner() {
+  const b = document.getElementById("inapp-banner");
+  if (b) b.classList.remove("show");
+}
 /* ═══════════════════════════════════════════════════
    GAME STATE
 ═══════════════════════════════════════════════════ */
@@ -2519,6 +2782,45 @@ updateAllUI();
 buildMissions();
 updateSkillTree();
 buildCerts();
-</script>
+
+    <!-- ==============================
+     DEMO LOGIN OVERLAY (Single-HTML)
+============================== -->
+<div id="demo-login" aria-hidden="true">
+  <div class="demo-card">
+    <div class="demo-pill">DEMO ACCESS</div>
+    <div class="demo-title">Unlock the Demo</div>
+    <div class="demo-text">
+      This is a prototype build. <b>No real payments.</b> No real accounts.<br>
+      Enter the demo code to proceed.
+    </div>
+
+    <input id="demo-code" class="demo-input" placeholder="Demo code (example: MARS200)" autocomplete="off" />
+    <div class="demo-actions">
+      <button class="demo-btn" onclick="demoOpenInBrowserTip()">Open in Browser</button>
+      <button class="demo-btn primary" onclick="demoUnlock()">Unlock →</button>
+    </div>
+
+    <div id="demo-err" class="demo-err">Wrong code. Try again.</div>
+
+    <div class="demo-tip">
+      If you opened from Instagram/Facebook: tap <b>⋯</b> → <b>Open in browser</b> for best performance.
+    </div>
+  </div>
+</div>
+
+<!-- Small banner that shows inside app when in in-app browser -->
+<div id="inapp-banner">
+  <div class="row">
+    <div class="msg">
+      You’re in an in-app browser. For the best experience, <b>open in Chrome</b>.
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="bbtn" onclick="demoOpenInBrowserTip()">How to open</button>
+      <button class="xbtn" onclick="hideInAppBanner()">Close</button>
+    </div>
+  </div>
+</div>
+        </script>
 </body>
 </html>
