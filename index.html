@@ -2,6 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HEX-01 · Mars Geological Survey</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HEX-01">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="description" content="ISRO Mars Rover Cognitive Simulator — Geological Survey Mission HEX-01">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@300;400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
 <!-- FIX: removed maximum-scale=1.0 / user-scalable=no to allow iOS to reflow properly.
      viewport-fit=cover gives us safe-area inset support for the notch. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -1592,6 +1607,15 @@ function updateThermal(){
   const el = document.getElementById('c-temp'); if(el) el.textContent = t.toFixed(1)+'°C';
 }
 
+/* ═════════════════════════════════════════════���══════════════
+   SIM ENGINE
+════════════════════════════════════════════════════════════ */
+function startSim(){
+  S.runId=mkRunId();S.startTs=nowISO();S.endedTs=null;S.log=[];
+  logEvent('RUN_START',{runId:S.runId});
+  startAmbientLoop();startSolarCycle();startNodeProximityTimer();startConstraintLoop();
+  updateUI();updateValidationPips();updateConstraintUI();
+  toast('HEX-01 ONLINE — MISSION ACTIVE');
 function updateDust(){
   GS.dust += GS.stormActive ? 0.008 : 0.001;
   GS.dust = Math.min(0.9, GS.dust);
