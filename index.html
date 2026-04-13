@@ -1294,6 +1294,8 @@ body {
   </div>
 </div>
 
+<script src="./passport/passportClient.js"></script>
+<script src="./telemetry/reportEvent.js"></script>
 <script>
 /* ==============================
    DEMO LOGIN GUARD — FIXED
@@ -1613,6 +1615,7 @@ function startSim(){
   startAmbientLoop();startSolarCycle();startNodeProximityTimer();startConstraintLoop();
   updateUI();updateValidationPips();updateConstraintUI();
   toast('HEX-01 ONLINE — MISSION ACTIVE');
+}
 function updateDust(){
   GS.dust += GS.stormActive ? 0.008 : 0.001;
   GS.dust = Math.min(0.9, GS.dust);
@@ -1864,6 +1867,11 @@ function pauseForStorm(){
     GS.latencyMs = Math.max(1200, GS.latencyMs-800);
     toast('STORM CLEARED — RESUMING OPERATIONS');
     logEvent('STORM_END',{via:'HALT'});
+    if (typeof window.reportPassportEvent === 'function') {
+      window.reportPassportEvent('crisis_resolved', {
+        score: computeSurvivalIndex()
+      });
+    }
     checkSkillUnlocks();
     updateAllUI();
   }, 7000);
@@ -1878,6 +1886,11 @@ function overrideStorm(){
   GS.latencyMs = Math.max(1200, GS.latencyMs-800);
   toast('OVERRIDE ACCEPTED — RISK +8');
   logEvent('STORM_OVERRIDE',{risk:GS.risk});
+  if (typeof window.reportPassportEvent === 'function') {
+    window.reportPassportEvent('crisis_resolved', {
+      score: computeSurvivalIndex()
+    });
+  }
   riskCheck();
   updateAllUI();
 }
@@ -1904,6 +1917,11 @@ function solarRecover(){
       document.getElementById('solarRing').classList.remove('active');
       document.getElementById('lowRing').classList.remove('active');
       toast('ENERGY RESTORED');
+      if (typeof window.reportPassportEvent === 'function') {
+        window.reportPassportEvent('resource_balanced', {
+          score: computeSurvivalIndex()
+        });
+      }
     }
   }, 1200);
   _ambTimers.push(iv);
@@ -1927,6 +1945,11 @@ function endMission(){
   checkBadges();
   updateAllUI();
   toast('MISSION COMPLETE — SURVIVAL INDEX: '+GS.lastRunSurvivalIndex+'%');
+  if (typeof window.reportPassportEvent === 'function') {
+    window.reportPassportEvent('mission_completed', {
+      score: GS.lastRunSurvivalIndex
+    });
+  }
   showScreen('dar');
   buildDAR();
 }
@@ -2080,6 +2103,12 @@ function showScreen(id){
 }
 
 function enterAs(role){
+  const auth = window.PassportClient ? window.PassportClient.verifySession() : { valid: false };
+  if (!auth.valid) {
+    if (window.PassportClient) window.PassportClient.login({ role });
+    return;
+  }
+
   // Gate only Quick Demo
   if (role === 'demo' && !isDemoAuthed()) {
     _pendingEnterRole = role;
@@ -2104,6 +2133,11 @@ function enterAs(role){
   } else {
     showScreen('sim');
     toast('HEX-01 ONLINE — MISSION ACTIVE');
+    if (typeof window.reportPassportEvent === 'function') {
+      window.reportPassportEvent('game_started', {
+        score: GS.lastRunSurvivalIndex || 0
+      });
+    }
   }
 }
 
