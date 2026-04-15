@@ -570,6 +570,13 @@ body {
 .dar-ai-box .typing-cursor { display:inline-block;width:8px;height:14px;background:var(--mars);animation:cursor-blink 0.8s infinite;vertical-align:middle; }
 @keyframes cursor-blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
 .dar-ai-label { font-family:var(--mono);font-size:7px;color:var(--mars-glow);letter-spacing:3px;margin-bottom:6px; }
+.results-sync-status { font-family:var(--mono);font-size:8px;color:var(--text-dim);margin-bottom:8px;letter-spacing:1px; }
+.results-sync-status.ok { color:var(--green); }
+.results-sync-status.err { color:var(--amber); }
+.results-table { width:100%;border-collapse:collapse;border:1px solid var(--border);background:var(--panel); }
+.results-table th,.results-table td { padding:8px;border-bottom:1px solid var(--border);font-size:10px;text-align:left; }
+.results-table th { font-family:var(--mono);font-size:8px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase; }
+.results-table td { color:var(--text-mid); }
 .event-timeline { display:flex;flex-direction:column;gap:8px; }
 .event-item { display:flex;gap:10px;align-items:flex-start; }
 .event-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px; }
@@ -1388,6 +1395,8 @@ const GS = {
 };
 
 const MARS = { SOL_MINUTES:1477, NIGHT_START:0.78, NIGHT_END:0.22, MAX_RISK:100 };
+const SKILLHEX_MISSION_ENDPOINT = '/skillhex/mission';
+const MISSION_RESULTS_KEY = 'skillhex_missions_v1';
 
 const TERRAINS = [
   {id:1, name:'Basaltic Flats',  complex:4.2, success:72, quadrant:'A3-07'},
@@ -1927,6 +1936,76 @@ function solarRecover(){
   _ambTimers.push(iv);
 }
 
+function getMissionDurationSeconds(){
+  if(!GS.startTs || !GS.endedTs) return null;
+  const start = Date.parse(GS.startTs);
+  const end = Date.parse(GS.endedTs);
+  if(Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
+  return Math.round((end - start) / 1000);
+}
+
+function getPassportId(){
+  const auth = window.PassportClient ? window.PassportClient.verifySession() : { valid:false };
+  return auth.valid ? (auth.uid || 'unknown') : 'anonymous';
+}
+
+function saveMissionResult(payload, synced){
+  try{
+    const current = JSON.parse(localStorage.getItem(MISSION_RESULTS_KEY) || '[]');
+    current.unshift({
+      passport_id: payload.passport_id,
+      mission_id: payload.mission.mission_id,
+      mission_name: payload.mission.name,
+      score: payload.score,
+      duration: payload.duration,
+      timestamp: new Date().toISOString(),
+      synced: !!synced
+    });
+    localStorage.setItem(MISSION_RESULTS_KEY, JSON.stringify(current.slice(0, 20)));
+  }catch(_err){
+    // keep simulator resilient when storage is unavailable
+  }
+}
+
+function sendMissionToSkillHex(payload){
+  return fetch(SKILLHEX_MISSION_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true
+  }).then(res=>res.ok).catch(()=>false);
+}
+
+function renderMissionResultsDashboard(){
+  const body = document.getElementById('mission-results-body');
+  const sync = document.getElementById('mission-results-sync');
+  if(!body || !sync) return;
+
+  let records = [];
+  try { records = JSON.parse(localStorage.getItem(MISSION_RESULTS_KEY) || '[]'); }
+  catch(_err){ records = []; }
+
+  const pending = records.filter(r=>!r.synced).length;
+  sync.className = 'results-sync-status ' + (pending === 0 ? 'ok' : 'err');
+  sync.textContent = pending === 0
+    ? 'SYNC STATUS: ALL RESULTS SENT TO SKILLHEX'
+    : `SYNC STATUS: ${pending} RESULT(S) PENDING`;
+
+  if(records.length === 0){
+    body.innerHTML = '<tr><td colspan="4">No missions recorded yet.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = records.map(r => `
+    <tr>
+      <td>${r.mission_name || 'Unknown'}</td>
+      <td>${r.score}%</td>
+      <td>${r.duration ?? '-'}s</td>
+      <td>${new Date(r.timestamp).toLocaleString()}</td>
+    </tr>
+  `).join('');
+}
+
 function endMission(){
   closeAllModals();
   if(!GS.endedTs) GS.endedTs = nowISO();
@@ -1950,6 +2029,19 @@ function endMission(){
       score: GS.lastRunSurvivalIndex
     });
   }
+  const missionPayload = {
+    passport_id: getPassportId(),
+    mission: {
+      mission_id: GS.currentMissionId,
+      name: (MISSIONS.find(m=>m.id===GS.currentMissionId)||{}).name || ('Mission '+GS.currentMissionId)
+    },
+    score: GS.lastRunSurvivalIndex,
+    duration: getMissionDurationSeconds()
+  };
+  sendMissionToSkillHex(missionPayload).then((ok)=>{
+    saveMissionResult(missionPayload, ok);
+    renderMissionResultsDashboard();
+  });
   showScreen('dar');
   buildDAR();
 }
@@ -2316,6 +2408,22 @@ function buildDAR(){
       <div class="dar-ai-label">◈ OFFLINE ANALYSIS</div>
       <div class="dar-ai-box" id="aiAnalysisBox"></div>
     </div>
+
+    <div class="dar-section">
+      <div class="dar-section-title">📊 MISSION RESULTS DASHBOARD</div>
+      <div class="results-sync-status" id="mission-results-sync">SYNC STATUS: CHECKING…</div>
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Mission</th>
+            <th>Score</th>
+            <th>Duration</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="mission-results-body"></tbody>
+      </table>
+    </div>
   `;
 
   setTimeout(()=>{
@@ -2329,6 +2437,7 @@ function buildDAR(){
 
   const box = document.getElementById('aiAnalysisBox');
   if(box) box.textContent = getFallbackAnalysis(si, acc);
+  renderMissionResultsDashboard();
 }
 
 function getFallbackAnalysis(si, acc){
